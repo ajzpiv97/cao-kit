@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased: caokit v1 slice
+
+New Python CLI `caokit` (Python >= 3.11, no runtime dependencies, `uv tool install`), replacing hardcoded profile names with roles.
+The bash scripts and the v0.1.0 profiles keep working unchanged.
+
+- `caokit doctor`: CLIs, auth, CAO version and single-install audit, roster check.
+- `caokit company create`: writes `caokit.toml` (role -> tool + model). Models are validated against
+  the tool (`agy models`); guardrails: cross-provider inspection (tool and model vendor), soft-enforcement
+  engineer needs `--allow-soft-engineer`, `general` is Claude-only, Codex is parked.
+- `caokit install`: renders `<role>-<tool>` profiles, validates, installs, treats CAO's `Error:`-with-exit-0
+  as failure, verifies the stored copy byte for byte, can move legacy profiles to a backup.
+- `caokit init <repo>`: scaffolds `.company/`, writes `ROSTER.md` (with an unconfirmed suggested validation
+  command), merges the project `.gitignore` (ignore `.company/*` except `contracts/`).
+- Not yet ported: validate, close, reset, audit, ui-check, up/down/send.
+
 ## v0.1.0 — baseline (2026-11-01)
 
 First published baseline of the CAO agent company kit. No behaviour changes from the validated state.

@@ -1,0 +1,38 @@
+id = "claude"
+cao_provider = "claude_code"
+enforcement = "native"
+status = "active"
+default_vendor = "anthropic"
+
+[detect]
+binary = "claude"
+version_cmd = ["claude", "--version"]
+auth_cmd = []                      # no cheap non-interactive auth check
+
+[models]
+source = "shape"                   # no `claude models` command exists
+aliases = ["sonnet", "opus", "haiku", "fable"]
+shape = "^claude-[A-Za-z0-9.\\[\\]-]+$"
+vendor_map = { "" = "anthropic" }
+
+[frontmatter]
+permissionMode = "auto"
+
+[roles.general]
+can_fill = "yes"
+recommended_model = "sonnet"
+
+[roles.engineer]
+can_fill = "yes"
+recommended_model = "opus"
+
+[roles.scout]
+can_fill = "yes"
+recommended_model = "sonnet"
+
+[roles.inspector]
+can_fill = "yes"
+recommended_model = "sonnet"
+
+[notes]
+text = ""

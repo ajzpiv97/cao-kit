@@ -1,0 +1,35 @@
+id = "antigravity"
+cao_provider = "antigravity_cli"
+enforcement = "soft"
+status = "active"
+default_vendor = "google"
+
+[detect]
+binary = "agy"
+version_cmd = ["agy", "--version"]
+auth_cmd = ["agy", "models"]       # succeeds only when logged in
+
+[models]
+source = "cmd"
+list_cmd = ["agy", "models"]       # first tab-separated column is the model ID
+vendor_map = { "gemini-" = "google", "claude-" = "anthropic", "gpt-" = "openai" }
+
+[frontmatter]
+
+[roles.general]
+can_fill = "no"                    # general relies on native tool denial; Claude only
+
+[roles.engineer]
+can_fill = "yes"                   # soft enforcement still requires --allow-soft-engineer
+recommended_model = "gemini-4-argon-high"
+
+[roles.scout]
+can_fill = "yes"
+recommended_model = "gemini-3.8-flash-medium"
+
+[roles.inspector]
+can_fill = "yes"
+recommended_model = "gemini-4-argon-high"
+
+[notes]
+text = "CAO launches Antigravity with `--dangerously-skip-permissions`, so the tool limits in this profile are advisory only. Follow the boundaries above exactly; nothing enforces them."

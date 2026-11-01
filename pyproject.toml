@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "caokit"
+version = "0.2.0.dev0"
+description = "Chain-of-command agent company kit for CAO (cli-agent-orchestrator)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []              # stdlib only (tomllib is in 3.11+)
+
+[project.scripts]
+caokit = "caokit.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+caokit = ["data/**/*"]
+
+[dependency-groups]
+dev = ["ruff>=0.6", "mypy>=1.10", "coverage>=7"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"         # lint against the oldest supported Python
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "D"]
+ignore = ["D203", "D213"]       # D203/D213 conflict with the Google convention's D211/D212
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]                # tests are named descriptively; no docstring noise
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+python_version = "3.11"          # same floor as requires-python and ruff
+strict = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false    # test methods are not worth a "-> None" each
+disallow_untyped_calls = false
+disallow_incomplete_defs = false
+check_untyped_defs = true        # but their bodies are still checked

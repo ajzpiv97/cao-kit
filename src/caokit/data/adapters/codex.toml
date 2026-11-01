@@ -1,0 +1,33 @@
+id = "codex"
+cao_provider = "codex"
+enforcement = "soft"
+status = "parked"                  # not selectable; kept as metadata only
+default_vendor = "openai"
+
+[detect]
+binary = "codex"
+version_cmd = ["codex", "--version"]
+auth_cmd = ["codex", "login", "status"]
+
+[models]
+source = "shape"
+aliases = []
+shape = "^[A-Za-z0-9.-]+$"
+vendor_map = { "" = "openai" }
+
+[frontmatter]
+
+[roles.general]
+can_fill = "no"
+
+[roles.engineer]
+can_fill = "no"
+
+[roles.scout]
+can_fill = "no"
+
+[roles.inspector]
+can_fill = "no"
+
+[notes]
+text = ""

@@ -13,6 +13,35 @@ own validation commands (test/CI command) and its own rules.
 - **CAO:** exactly **2.5.4**, installed with `uv tool`.
 - **Status:** validated end to end with a Claude + Antigravity roster (see [Validation](#validation)).
 
+## caokit CLI (v1 slice, in development)
+
+```bash
+uv tool install git+https://github.com/<user>/cao-kit      # or: uv tool install --from . caokit
+caokit doctor
+caokit company create --general claude:sonnet --engineer claude:opus \
+    --scout antigravity:gemini-3.8-flash-medium --inspector antigravity:gemini-4-argon-high
+caokit install              # add --replace-legacy / --remove-legacy if CAO or old profiles object
+caokit init /path/to/repo   # scaffolds .company/, ROSTER.md and merges .gitignore
+```
+
+Config lives in `~/.config/caokit/caokit.toml` (`$CAOKIT_HOME` or `--config` to override). Roles are
+tool-agnostic; concrete CAO profiles are named `<role>-<tool>` (CAO allows only `[A-Za-z0-9_-]`).
+The older scripts below still work for the v0 roster.
+
+### Developing caokit
+
+```bash
+export PYTHONPATH=src
+uvx ruff check src tests && uvx ruff format --check src tests   # lint + format (Google docstrings enforced)
+uvx mypy                                                          # strict types for src, lenient for tests
+python3 -B -m unittest discover -s tests -t .                    # unit tests (a real-cao test runs if `cao` is installed)
+uvx --with coverage coverage run --source=src -m unittest discover -s tests -t . && uvx --with coverage coverage report -m
+```
+
+Ruff lints and formats but does not type-check, so mypy covers types. Both target Python 3.11, the minimum
+(`requires-python = ">=3.11"`); caokit has no runtime dependencies. `uv tool install` fetches a suitable
+interpreter, so the system Python does not matter.
+
 ## Roster
 
 | Profile | Provider | Job | Tool limits |
