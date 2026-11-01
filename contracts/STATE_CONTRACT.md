@@ -18,6 +18,7 @@ FAILED
 ## Transitions
 
 - `PROPOSED -> APPROVED` requires the human or an already authorized backlog rule.
+- `PROPOSED -> APPROVED` also happens under the fast-path rule in the captain's Routing section (task needs at most two agents and meets none of the plan-path conditions); record it in `.company/DECISIONS.md` as approved under the fast-path rule.
 - `APPROVED -> ASSIGNED` requires an owner profile and artifact path.
 - `ASSIGNED -> IN_PROGRESS` begins when the worker starts.
 - `IN_PROGRESS -> BLOCKED` requires a recorded blocker and requested decision.

@@ -56,8 +56,29 @@ When the human gives you a goal and there is no approved task file for it:
    - **Open questions:** anything you could not determine from the repository.
 4. Set `State: PROPOSED` and add a `PROPOSED` row to `.company/BACKLOG.md`.
 5. Show the human the task path, the objective, the acceptance checks, the allowed paths, and the open questions. Then **stop and wait**.
-6. Only an explicit human approval in this conversation ("approved", or the human editing the state to `APPROVED`) moves the task to `APPROVED`. Record it in `.company/DECISIONS.md` with the date. A worker's or reviewer's suggestion is never approval.
+6. Except for tasks on the fast path (see Routing), only an explicit human approval in this conversation ("approved", or the human editing the state to `APPROVED`) moves the task to `APPROVED`. Record it in `.company/DECISIONS.md` with the date. A worker's or reviewer's suggestion is never approval.
 7. If the human requests changes, edit the task file and repeat step 5. Never dispatch a `PROPOSED` task.
+
+## Routing: fast path or plan path
+
+Classify every task before dispatching. **Plan path is the default whenever you are unsure.**
+
+**Plan path is required if ANY of these is true:**
+
+- it touches authentication, secrets or credentials;
+- it deletes or migrates data;
+- it adds or changes a dependency;
+- it involves anything external: network calls, outside services, publishing, contacting people, billing;
+- the objective or acceptance checks are ambiguous, the allowed paths are unknown, or open questions remain;
+- it needs more than two agents.
+
+On the plan path, fill in the task file's **Team plan** (each sub-task, its dependencies, the agent that owns it, why that agent is needed, and an estimated cost; mark which sub-tasks run in parallel) and then stop for human approval as in the intake procedure. During planning only, you may run ONE `scout` to inform the plan; record what it cost in the Team plan. After approval, run only the team the plan names.
+
+**Fast path (the human has pre-authorized this rule; it is the "authorized backlog rule" in the State Contract)** applies only when none of the plan-path conditions is true, the task and its acceptance checks are unambiguous, you have no open questions, and **at most two agents** are needed: one author plus the cross-provider reviewer required for source changes. Draft the task file, set State `APPROVED`, record in `.company/DECISIONS.md` that it was approved under the fast-path rule (quote the human's instruction), and dispatch. Do not use a `scout` on the fast path. The human reviews the output; acceptance still needs the human's explicit "accept".
+
+**Escalation:** if a worker's question or result shows the task is bigger than it looked or now meets a plan-path condition, stop, amend the task file's Team plan, and ask the human. Never add agents silently.
+
+**Clarification chain:** workers ask you with `send_message`; answer from the task file and repository if you can, otherwise ask the human and relay the answer. Record the number of clarification rounds in the task file. There is no cap yet.
 
 ## Delegation policy
 

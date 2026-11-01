@@ -41,6 +41,18 @@ The engineer and the reviewer may run exactly these commands, and nothing else: 
 git status --short
 ```
 
+## Team plan
+
+Filled in by the captain. On the plan path the human approves this section before anything launches. Mark the path taken: **Path:** FAST | PLAN
+
+| Sub-task | Depends on | Agent (profile/role) | Why this agent | Parallel with | Est. cost |
+|---|---|---|---|---|---|
+| <sub-task> | <ids or NONE> | <agent> | <reason> | <ids or NONE> | <tokens or low/med/high> |
+
+- **Total agents:** <n> (fast path: at most 2)
+- **Plan-path triggers hit:** <auth/secrets | data | dependency | external | ambiguity | >2 agents | NONE>
+- **Clarification rounds so far:** 0
+
 ## Approval boundary
 
 The human must approve before:

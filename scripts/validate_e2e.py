@@ -670,7 +670,8 @@ def evaluate(results: dict) -> list:
     write(EVID / "git-diff-stat.txt", diffstat)
     _, log_out = git("log", "--oneline", "--all")
     write(EVID / "git-log.txt", log_out)
-    outside = [c for c in changed if not c.startswith(".company/")]
+    outside = [c for c in changed if not c.startswith(".company/")
+               and "__pycache__/" not in c and not c.endswith(".pyc")]
     extra_company = [c for c in changed if c.startswith(".company/") and c not in ALLOWED_WRITES]
     results["git_changed"] = changed
     results["git_commits_after_run"] = log_out.strip().splitlines()
@@ -856,6 +857,10 @@ def main() -> int:
             with contextlib.suppress(Exception):
                 checks = evaluate(results)
     finally:
+        rc, out = run([sys.executable, str(KIT / "scripts" / "token_usage.py"), str(REPO),
+                       "--json", str(EVID / "token-usage.json")], timeout=60)
+        write(EVID / "token-usage.md", out)
+        log("token usage -> evidence/token-usage.md" if rc == 0 else "token usage unavailable")
         try:
             report(results, checks, fatal)
         finally:
