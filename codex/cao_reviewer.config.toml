@@ -1,0 +1,3 @@
+# Loaded when CAO passes: codex --profile cao_reviewer
+approval_policy = "never"
+sandbox_mode = "read-only"

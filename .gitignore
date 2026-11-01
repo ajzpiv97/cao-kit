@@ -1,0 +1,8 @@
+# Local run output: evidence and throwaway smoke repos (nested git repos)
+validation/
+# Holding area for files that are no longer used (this session can move, not delete)
+_to_delete/
+# Python / OS noise
+__pycache__/
+*.pyc
+.DS_Store
