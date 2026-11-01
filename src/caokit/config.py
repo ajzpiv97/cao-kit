@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .adapters import ROLES
+from .render import validate_project_name
 
 SCHEMA = 1
 CAO_VERSION = "2.5.4"  # the only CAO version this kit is validated against
@@ -40,12 +41,15 @@ class Config:
         allow_soft_engineer: Lets a soft-enforcement tool be the engineer.
         allow_single_provider: Downgrades the cross-provider rule to a warning.
         expected_cao_version: CAO version the kit expects; doctor warns otherwise.
+        project: Project slug when this is a project-scoped (effective) config; its
+            profiles are named ``<project>_<role>-<tool>``. None for the user-level config.
     """
 
     roles: dict[str, Binding]
     allow_soft_engineer: bool = False  # lets a soft-enforcement tool be the engineer
     allow_single_provider: bool = False  # downgrades the cross-provider rule to a warning
     expected_cao_version: str = CAO_VERSION
+    project: str | None = None
 
 
 def default_path() -> Path:
@@ -67,6 +71,20 @@ def _only(d: dict[str, Any], allowed: Iterable[str], where: str) -> None:
             raise ConfigError(f"unknown key {where}.{k}" if where else f"unknown key {k}")
 
 
+def _parse_project_name(raw: Any) -> str | None:
+    """Validate the optional ``[project] name`` table, returning the slug or None."""
+    if raw is None:
+        return None
+    _only(raw, {"name"}, "project")
+    name = raw.get("name")
+    if not isinstance(name, str):
+        raise ConfigError("project.name must be a string")
+    try:
+        return validate_project_name(name)
+    except ValueError as e:
+        raise ConfigError(str(e)) from e
+
+
 def parse_config(d: dict[str, Any]) -> Config:
     """Validate a parsed TOML dict and build a :class:`Config`.
 
@@ -82,7 +100,7 @@ def parse_config(d: dict[str, Any]) -> Config:
     Raises:
         ConfigError: Wrong schema, unknown/missing role, unknown key, or bad type.
     """
-    _only(d, {"schema", "cao", "policy", "roles"}, "")
+    _only(d, {"schema", "cao", "policy", "roles", "project"}, "")
     if d.get("schema") != SCHEMA:
         raise ConfigError(f"schema must be {SCHEMA} (got {d.get('schema')!r})")
     cao = d.get("cao", {})
@@ -113,6 +131,7 @@ def parse_config(d: dict[str, Any]) -> Config:
         allow_soft_engineer=pol.get("allow_soft_engineer", False),
         allow_single_provider=pol.get("allow_single_provider", False),
         expected_cao_version=cao.get("expected_version", CAO_VERSION),
+        project=_parse_project_name(d.get("project")),
     )
 
 
@@ -157,6 +176,8 @@ def dump_config(c: Config) -> str:
         f"allow_soft_engineer = {str(c.allow_soft_engineer).lower()}",
         f"allow_single_provider = {str(c.allow_single_provider).lower()}",
     ]
+    if c.project:
+        out[2:2] = ["[project]", f"name = {q(c.project)}", ""]
     for r in ROLES:
         b = c.roles[r]
         out += ["", f"[roles.{r}]", f"tool = {q(b.tool)}"]

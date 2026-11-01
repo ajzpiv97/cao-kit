@@ -12,6 +12,8 @@ from .config import Binding, ConfigError, default_path, load_config
 from .doctor import format_report, run_doctor
 from .init_project import InitError, init_project
 from .install import InstallError, cao_home, find_legacy, install_profiles, remove_legacy
+from .project import check_effective, effective_config, resolve_project
+from .render import profile_name
 
 
 def _ask(prompt: str, default: str) -> str:
@@ -105,15 +107,20 @@ def cmd_install(a: argparse.Namespace) -> int:
     """Run ``caokit install``.
 
     Args:
-        a: Parsed arguments (``config``, ``replace_legacy``, ``remove_legacy``).
+        a: Parsed arguments (``config``, ``project``, ``replace_legacy``,
+            ``remove_legacy``).
 
     Returns:
         0 on success, 1 on a config/roster error or if any profile failed to install.
     """
     try:
         cfg = load_config(a.config)
+        if a.project:
+            # Project mode: the user-level config plus the project's overrides, installed
+            # under <project>_<role>-<tool> names so other projects are not affected.
+            cfg = effective_config(Path(a.project), cfg)
         home = cao_home()
-        legacy = find_legacy(home)  # scan before installing, for the offer below
+        legacy = [] if a.project else find_legacy(home)  # legacy cleanup is machine-wide only
         res = install_profiles(cfg, home, replace_legacy=a.replace_legacy)
     except (ConfigError, InstallError) as e:
         print(f"error: {e}", file=sys.stderr)
@@ -142,14 +149,25 @@ def cmd_init(a: argparse.Namespace) -> int:
     """Run ``caokit init <repo>``.
 
     Args:
-        a: Parsed arguments (``repo``, ``config``).
+        a: Parsed arguments (``repo``, ``config``, ``name``, ``override``,
+            ``force_project``).
 
     Returns:
-        0 on success, 1 if the config is bad or the target is not a git repo.
+        0 on success, 1 if the config or overrides are bad, or the target is not a git
+        repo.
     """
     try:
-        cfg = load_config(a.config)
-        res = init_project(Path(a.repo), cfg)
+        base = load_config(a.config)
+        repo = Path(a.repo)
+        cfg, new_overrides = resolve_project(repo, base, a.name, a.override)
+        if cfg.project:
+            errors, warnings = check_effective(cfg, new_overrides)
+            for w in warnings:
+                print("WARNING: " + w)
+            if errors:
+                print("error: " + "\n       ".join(errors), file=sys.stderr)
+                return 1
+        res = init_project(repo, cfg, overrides=new_overrides, force_project=a.force_project)
     except (ConfigError, InitError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
@@ -168,6 +186,15 @@ def cmd_init(a: argparse.Namespace) -> int:
     print(
         ".gitignore updated (caokit block). Review `git status`, then commit contracts/ yourself."
     )
+    if cfg.project:
+        general = profile_name("general", cfg.roles["general"].tool, cfg.project)
+        repo_abs = Path(a.repo).resolve()
+        print(f"Project '{cfg.project}': profiles are namespaced. Next:")
+        print(f"  caokit install --project {repo_abs}")
+        print(
+            f"  cao launch --agents {general} --session-name {cfg.project} "
+            f"--working-directory {repo_abs}"
+        )
     return 0
 
 
@@ -207,9 +234,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     ins.add_argument(
         "--remove-legacy", action="store_true", help="move old pre-v1 profiles to a backup"
     )
+    ins.add_argument(
+        "--project",
+        metavar="REPO",
+        help="install this project's namespaced profiles (needs .company/caokit.toml)",
+    )
     ins.set_defaults(fn=cmd_install)
     ini = sub.add_parser("init", help="scaffold .company/ in a git repo")
     ini.add_argument("repo")
+    ini.add_argument("--name", metavar="PROJECT", help="project slug; namespaces its profiles")
+    ini.add_argument(
+        "--override",
+        action="append",
+        default=[],
+        metavar="ROLE=TOOL[:MODEL]",
+        help="override a role for this project (repeatable); ROLE=:MODEL keeps the tool",
+    )
+    ini.add_argument(
+        "--force-project", action="store_true", help="overwrite an existing .company/caokit.toml"
+    )
     ini.set_defaults(fn=cmd_init)
     a = p.parse_args(argv)
     code: int = a.fn(a)  # each subcommand registered its handler via set_defaults(fn=...)

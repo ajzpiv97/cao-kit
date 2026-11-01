@@ -13,7 +13,12 @@ The bash scripts and the v0.1.0 profiles keep working unchanged.
   as failure, verifies the stored copy byte for byte, can move legacy profiles to a backup.
 - `caokit init <repo>`: scaffolds `.company/`, writes `ROSTER.md` (with an unconfirmed suggested validation
   command), merges the project `.gitignore` (ignore `.company/*` except `contracts/`).
-- Not yet ported: validate, close, reset, audit, ui-check, up/down/send.
+- Per-project setups: `caokit init <repo> --name <project> [--override role=tool:model]` writes
+  `.company/caokit.toml` (git-ignored) and a namespaced `ROSTER.md`; `caokit install --project <repo>` installs
+  `<project>_<role>-<tool>` profiles so projects never overwrite each other in CAO's global store.
+  Measured on CAO 2.5.4: reinstalling the same name with another model silently replaces it, and a per-call
+  model override is ignored for Antigravity profiles that pin a model, hence namespaced profiles.
+- Not yet ported: validate, close, reset, audit, ui-check, up/down/send. No command removes a project's profiles yet.
 
 ## v0.1.0 — baseline (2026-11-01)
 

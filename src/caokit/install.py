@@ -56,12 +56,14 @@ def render_all(cfg: Config) -> dict[str, str]:
         cfg: The company configuration.
 
     Returns:
-        Mapping of concrete profile name (``<role>-<tool>``) to full profile text.
+        Mapping of concrete profile name to full profile text. Names are
+        ``<role>-<tool>``, or ``<project>_<role>-<tool>`` for a project-scoped config.
     """
     out = {}
     for role in ROLES:
         b = cfg.roles[role]
-        out[profile_name(role, b.tool)] = render_profile(role, load_adapter(b.tool), b.model)
+        name = profile_name(role, b.tool, cfg.project)
+        out[name] = render_profile(role, load_adapter(b.tool), b.model, cfg.project)
     return out
 
 

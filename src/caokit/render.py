@@ -12,24 +12,56 @@ PROFILE_NAME_RE = r"^[A-Za-z0-9_-]{1,64}$"
 _PART_RE = re.compile(r"^[a-z0-9]+$")
 
 
-def profile_name(role: str, tool: str) -> str:
-    """Build the concrete CAO profile name ``<role>-<tool>``.
+# Project slug: lowercase alphanumerics and "-", at most 24 chars. It must not contain "_" because
+# "_" separates the project from "<role>-<tool>", which keeps the full name unambiguous, and the
+# cap keeps "<project>_<role>-<tool>" well under CAO's 64-character limit.
+PROJECT_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,23}$")
+
+
+def validate_project_name(project: str) -> str:
+    """Check a project slug.
+
+    Args:
+        project: Candidate slug, e.g. ``myapp``.
+
+    Returns:
+        The slug unchanged.
+
+    Raises:
+        ValueError: If it is not 1-24 chars of lowercase letters, digits and ``-``.
+    """
+    if not PROJECT_RE.match(project):
+        raise ValueError(
+            f"invalid project name {project!r}: use 1-24 lowercase letters, digits or '-' "
+            "(start with a letter or digit)"
+        )
+    return project
+
+
+def profile_name(role: str, tool: str, project: str | None = None) -> str:
+    """Build the concrete CAO profile name.
+
+    Shared profiles are ``<role>-<tool>``; project-scoped ones are
+    ``<project>_<role>-<tool>`` so projects never overwrite each other in CAO's
+    machine-global profile store.
 
     Args:
         role: Role ID, e.g. ``inspector``.
         tool: Tool ID, e.g. ``antigravity``.
+        project: Project slug, or None for the shared (machine-wide) profile.
 
     Returns:
-        The profile name, e.g. ``inspector-antigravity``.
+        The profile name, e.g. ``inspector-antigravity`` or ``myapp_inspector-antigravity``.
 
     Raises:
-        ValueError: If a part is not lowercase alphanumeric or the result is not a
-            valid CAO profile name.
+        ValueError: If a part is invalid or the result is not a valid CAO profile name.
     """
     for part in (role, tool):
         if not _PART_RE.match(part):
             raise ValueError(f"invalid name part {part!r}")
     name = f"{role}-{tool}"
+    if project is not None:
+        name = f"{validate_project_name(project)}_{name}"
     if not re.match(PROFILE_NAME_RE, name):
         raise ValueError(f"invalid profile name {name!r}")
     return name
@@ -54,7 +86,9 @@ def load_role(role: str) -> str:
     )
 
 
-def render_profile(role: str, adapter: Adapter, model: str | None) -> str:
+def render_profile(
+    role: str, adapter: Adapter, model: str | None, project: str | None = None
+) -> str:
     """Combine a role body with a tool adapter into a complete CAO profile.
 
     Output is deterministic, since CAO stores profiles byte for byte and the
@@ -64,6 +98,7 @@ def render_profile(role: str, adapter: Adapter, model: str | None) -> str:
         role: Role ID.
         adapter: The tool adapter that fills the role.
         model: Model ID to pin, or None to omit ``model:`` (tool default applies).
+        project: Project slug to namespace the profile name with, or None for shared.
 
     Returns:
         The profile text (frontmatter + body + optional "Tool notes" section).
@@ -76,7 +111,7 @@ def render_profile(role: str, adapter: Adapter, model: str | None) -> str:
     if not m:
         raise ValueError(f"role {role} has no frontmatter")
     fm_lines, body = m.group(1).split("\n"), m.group(2)
-    out: list[str] = ["---", "name: " + profile_name(role, adapter.id)]
+    out: list[str] = ["---", "name: " + profile_name(role, adapter.id, project)]
     for line in fm_lines:
         out.append(line)
         # Provider-specific fields are injected right after the CAO ``role:`` line.

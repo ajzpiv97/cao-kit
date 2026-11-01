@@ -28,6 +28,29 @@ Config lives in `~/.config/caokit/caokit.toml` (`$CAOKIT_HOME` or `--config` to 
 tool-agnostic; concrete CAO profiles are named `<role>-<tool>` (CAO allows only `[A-Za-z0-9_-]`).
 The older scripts below still work for the v0 roster.
 
+### Per-project setups
+
+CAO's profile store is machine-global (profiles are not looked up in a project directory), so two projects
+sharing `engineer-claude` would overwrite each other's model. Give a project its own namespaced profiles:
+
+```bash
+caokit init ~/proj-a --name proja                          # same roster as the user-level config
+caokit init ~/proj-b --name projb --override engineer=:sonnet --override scout=claude:haiku
+caokit install --project ~/proj-a                          # installs proja_general-claude, proja_engineer-claude, ...
+caokit install --project ~/proj-b
+cao launch --agents proja_general-claude --session-name proja --working-directory ~/proj-a
+```
+
+- Two layers: the user-level `caokit.toml`, then the project's `.company/caokit.toml` (git-ignored) with a
+  `[project] name`, optional `[policy]`, and per-role `tool`/`model` overrides.
+- Override forms: `role=tool`, `role=tool:model`, `role=:model` (keep the tool). Changing a role's tool
+  without a model drops the user-level model (a model ID from one tool means nothing to another).
+- Names are `<project>_<role>-<tool>`; the project is 1-24 lowercase letters, digits or `-`.
+- All guardrails (cross-provider inspection, soft-engineer opt-in, model validation) re-run on the merged config.
+- Without `--name`, `init` keeps today's behaviour: shared `<role>-<tool>` profiles.
+- Each project is its own CAO session (one `cao-server` serves them all); give each a distinct `--session-name`.
+- Not yet built: removing a project's profiles from CAO. Delete `<project>_*` from the profile store by hand.
+
 ### Developing caokit
 
 ```bash
