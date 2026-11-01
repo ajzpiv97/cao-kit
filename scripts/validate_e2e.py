@@ -28,6 +28,7 @@ Environment knobs:
 
 from __future__ import annotations
 
+import contextlib
 import datetime as _dt
 import hashlib
 import json
@@ -96,7 +97,7 @@ def now() -> str:
 
 
 def log(msg: str) -> None:
-    line = "[{}] {}".format(now(), msg)
+    line = f"[{now()}] {msg}"
     print(line, flush=True)
     if _log_fh:
         _log_fh.write(line + "\n")
@@ -112,11 +113,11 @@ def run(cmd, timeout=120, cwd=None, env=None, check=False):
         )
         out = p.stdout or ""
         if check and p.returncode != 0:
-            raise RuntimeError("{} failed ({}):\n{}".format(cmd, p.returncode, out))
+            raise RuntimeError(f"{cmd} failed ({p.returncode}):\n{out}")
         return p.returncode, out
     except subprocess.TimeoutExpired as e:
         out = e.stdout if isinstance(e.stdout, str) else (e.stdout or b"").decode("utf-8", "replace")
-        return 124, (out or "") + "\n[harness] TIMEOUT after {}s".format(timeout)
+        return 124, (out or "") + f"\n[harness] TIMEOUT after {timeout}s"
     except FileNotFoundError as e:
         return 127, str(e)
 
@@ -215,7 +216,7 @@ def preflight(results: dict) -> None:
     for name, prov in EXPECTED.items():
         f = gp / (name + ".md")
         if not f.exists():
-            raise Fatal("Rendered profile missing: {} (run scripts/10-render-profiles.sh)".format(f))
+            raise Fatal(f"Rendered profile missing: {f} (run scripts/10-render-profiles.sh)")
         fm[name] = frontmatter(f)
         if fm[name].get("provider") != prov:
             raise Fatal("{} declares provider {!r}, expected {!r}".format(
@@ -234,9 +235,9 @@ def preflight(results: dict) -> None:
         listed = model in out
         results["agy_model_listed"] = "YES" if listed else "NO"
         if not listed:
-            log("WARN: configured agy model {!r} not found verbatim in `agy models` output "
-                "(see evidence/agy-models.txt). CAO passes it as `agy --model {!r}`; "
-                "the live run will show whether agy accepts it.".format(model, model))
+            log(f"WARN: configured agy model {model!r} not found verbatim in `agy models` output "
+                f"(see evidence/agy-models.txt). CAO passes it as `agy --model {model!r}`; "
+                "the live run will show whether agy accepts it.")
 
     rmodel = fm["agy_reviewer"].get("model", "")
     results["agy_review_model_configured"] = rmodel
@@ -252,7 +253,7 @@ def ensure_server(results: dict) -> None:
     h = api_try("GET", "/health", timeout=5)
     if h:
         results["server_started_by_harness"] = False
-        log("reusing running cao-server: {}".format(h))
+        log(f"reusing running cao-server: {h}")
     else:
         log("starting cao-server --terminal tmux (log: evidence/cao-server.log)")
         fh = open(EVID / "cao-server.log", "w")
@@ -284,8 +285,8 @@ def ensure_profiles(results: dict) -> None:
 
     def check():
         report, stale = {}, []
-        for name, prov in EXPECTED.items():
-            info = api_try("GET", "/agents/profiles/{}".format(name), default=None)
+        for name, _prov in EXPECTED.items():
+            info = api_try("GET", f"/agents/profiles/{name}", default=None)
             gpath = KIT / "generated-profiles" / (name + ".md")
             gen = frontmatter(gpath)
             info = info if isinstance(info, dict) else None
@@ -301,12 +302,12 @@ def ensure_profiles(results: dict) -> None:
                 # Full-text check: CAO stores profiles byte-for-byte, so any body edit
                 # (instructions, tool lists) must show up here even when frontmatter
                 # keys are unchanged.
-                src = api_try("GET", "/agents/profiles/{}/source".format(name), default=None)
+                src = api_try("GET", f"/agents/profiles/{name}/source", default=None)
                 stored = src.get("content") if isinstance(src, dict) else None
                 if stored is not None:
                     gtext = gpath.read_text(encoding="utf-8")
                     if stored.strip() != gtext.strip():
-                        drift["full_text"] = "installed text differs from generated-profiles/{}.md".format(name)
+                        drift["full_text"] = f"installed text differs from generated-profiles/{name}.md"
             report[name] = {
                 "installed": info is not None,
                 "provider": info.get("provider") if info else None,
@@ -322,7 +323,7 @@ def ensure_profiles(results: dict) -> None:
 
     report, stale = check()
     if stale:
-        log("profiles missing/stale vs generated-profiles: {} -> running 30-install-cao-profiles.sh".format(stale))
+        log(f"profiles missing/stale vs generated-profiles: {stale} -> running 30-install-cao-profiles.sh")
         env = dict(os.environ, REPLACE_LEGACY="1")  # back up + replace pre-2.5.3 copies
         rc, out = run([str(KIT / "scripts" / "30-install-cao-profiles.sh")], timeout=300,
                       cwd=str(KIT), env=env)
@@ -334,13 +335,13 @@ def ensure_profiles(results: dict) -> None:
         if stale:
             write(EVID / "installed-profiles.json", json.dumps(report, indent=2))
             raise Fatal("Installed CAO profiles still differ from generated-profiles after "
-                        "reinstall: {} (see evidence/installed-profiles.json and "
-                        "install-profiles.txt). Refusing to test stale profiles.".format(stale))
+                        f"reinstall: {stale} (see evidence/installed-profiles.json and "
+                        "install-profiles.txt). Refusing to test stale profiles.")
     write(EVID / "installed-profiles.json", json.dumps(report, indent=2))
     results["installed_profiles"] = report
     bad = [n for n, r in report.items() if not r["installed"] or (r["provider"] and r["provider"] != EXPECTED[n])]
     if bad:
-        raise Fatal("Installed profiles wrong/missing after install: {}".format(bad))
+        raise Fatal(f"Installed profiles wrong/missing after install: {bad}")
     log("profiles ok: {}".format({n: r["provider"] for n, r in report.items()}))
 
 
@@ -458,7 +459,7 @@ def git(*args, timeout=60):
 def make_repo(results: dict) -> None:
     log("PHASE 4/6 throwaway repository + .company scaffold")
     if REPO.exists():
-        raise Fatal("{} already exists".format(REPO))
+        raise Fatal(f"{REPO} already exists")
     for rel, body in SEED.items():
         write(REPO / rel, body)
     git("init", "-q")
@@ -486,7 +487,7 @@ def make_repo(results: dict) -> None:
     git("commit", "-q", "-m", "baseline: .company scaffold for TASK-0001")
     rc, head = git("rev-parse", "HEAD")
     results["baseline_commit"] = head.strip()
-    log("repo ready at {} (baseline {})".format(REPO, head.strip()[:10]))
+    log(f"repo ready at {REPO} (baseline {head.strip()[:10]})")
 
 
 def existing_session_guard() -> None:
@@ -497,17 +498,18 @@ def existing_session_guard() -> None:
             names.update({s.get("id"), s.get("name"), s.get("session_name")})
     if SESSION in names:
         if FORCE_REPLACE:
-            log("FORCE_REPLACE=1: shutting down existing {}".format(SESSION))
+            log(f"FORCE_REPLACE=1: shutting down existing {SESSION}")
             run(["cao", "shutdown", "--session", SESSION], timeout=120)
             time.sleep(3)
         else:
-            raise Fatal("A '{}' session is already running. Stop it (scripts/90-stop.sh) "
-                        "or rerun with FORCE_REPLACE=1.".format(SESSION))
+            raise Fatal(f"A '{SESSION}' session is already running. Stop it (scripts/90-stop.sh) "
+                        "or rerun with FORCE_REPLACE=1.")
 
 
 def terminal_full(tid: str) -> dict:
     """GET /terminals/{id}: the full record (status AND caller_id; the
-    /sessions/{s}/terminals list omits caller_id in CAO 2.5.x)."""
+    /sessions/{s}/terminals list omits caller_id in CAO 2.5.x).
+    """
     t = api_try("GET", "/terminals/" + tid, default={}) or {}
     return t if isinstance(t, dict) else {}
 
@@ -517,7 +519,7 @@ def terminal_status(tid: str) -> str:
 
 
 def snapshot_terminal(tid: str, profile: str) -> None:
-    out = api_try("GET", "/terminals/{}/output".format(tid), params={"mode": "full"},
+    out = api_try("GET", f"/terminals/{tid}/output", params={"mode": "full"},
                   timeout=60, default=None)
     if isinstance(out, dict) and out.get("output"):
         write(TERM_DIR / "{}-{}.log".format(profile or "unknown", tid), out["output"])
@@ -545,9 +547,9 @@ def launch_and_watch(results: dict) -> None:
     synth = REPO / ART["synthesis"]
 
     while time.time() < deadline:
-        terms = api_try("GET", "/sessions/{}/terminals".format(SESSION), default=None)
+        terms = api_try("GET", f"/sessions/{SESSION}/terminals", default=None)
         if terms is None:
-            log("session {} not visible via API".format(SESSION))
+            log(f"session {SESSION} not visible via API")
             if seen:
                 break  # session went away
             time.sleep(POLL_SEC)
@@ -581,7 +583,7 @@ def launch_and_watch(results: dict) -> None:
             timeline.write(json.dumps({"t": now(), "id": tid, "profile": t.get("agent_profile"),
                                        "provider": t.get("provider"), "status": st}) + "\n")
             snapshot_terminal(tid, t.get("agent_profile"))
-            sig_parts.append("{}:{}".format(tid, st))
+            sig_parts.append(f"{tid}:{st}")
         timeline.flush()
         arts = tuple((k, (REPO / p).exists() and (REPO / p).stat().st_size) for k, p in ART.items())
         sig = (tuple(sig_parts), arts)
@@ -589,7 +591,7 @@ def launch_and_watch(results: dict) -> None:
             last_sig, last_change = sig, time.time()
 
         if conductor:
-            inbox = api_try("GET", "/terminals/{}/inbox/messages".format(conductor),
+            inbox = api_try("GET", f"/terminals/{conductor}/inbox/messages",
                             params={"limit": 100}, default=[])
             write(EVID / "captain-inbox.json", json.dumps(inbox, indent=2))
 
@@ -597,7 +599,7 @@ def launch_and_watch(results: dict) -> None:
         if synth.exists() and synth.stat().st_size > 0 and cstat in DONE_STATES:
             stable_done += 1
             if stable_done >= 2:
-                log("synthesis present and captain {} -> run finished".format(cstat))
+                log(f"synthesis present and captain {cstat} -> run finished")
                 break
         else:
             stable_done = 0
@@ -607,16 +609,15 @@ def launch_and_watch(results: dict) -> None:
             msg = ("Report TASK-0001 status, current workers, missing callbacks, and artifact paths. "
                    "Do not redo completed work. If both worker artifacts exist, continue with the "
                    "claude_reviewer handoff and the synthesis.")
-            log("STALL {}min with no progress -> sending ONE documented nudge (80-send.sh)".format(
-                round(stalled_for / 60)))
+            log(f"STALL {round(stalled_for / 60)}min with no progress -> sending ONE documented nudge (80-send.sh)")
             rc, out = run([str(KIT / "scripts" / "80-send.sh"), msg], timeout=660, cwd=str(KIT))
-            write(EVID / "nudge.txt", "rc={}\n{}".format(rc, out))
+            write(EVID / "nudge.txt", f"rc={rc}\n{out}")
             nudged = True
             results["nudged_at"] = now()
             last_change = time.time()
         time.sleep(POLL_SEC)
     else:
-        log("TIMEOUT after {} min".format(TIMEOUT_MIN))
+        log(f"TIMEOUT after {TIMEOUT_MIN} min")
         results["timed_out"] = True
 
     timeline.close()
@@ -626,7 +627,7 @@ def launch_and_watch(results: dict) -> None:
     # Inbox of every terminal (captures captain->worker steering too).
     allbox = {}
     for tid in seen:
-        allbox[tid] = api_try("GET", "/terminals/{}/inbox/messages".format(tid),
+        allbox[tid] = api_try("GET", f"/terminals/{tid}/inbox/messages",
                               params={"limit": 100}, default=[])
     write(EVID / "all-inboxes.json", json.dumps(allbox, indent=2))
     write(EVID / "terminals.json", json.dumps(seen, indent=2, default=str))
@@ -643,7 +644,7 @@ def evaluate(results: dict) -> list:
     seen = results.get("terminals", {}) or {}
     cid = results.get("conductor_id")
     by_profile = {}
-    for tid, r in seen.items():
+    for _tid, r in seen.items():
         by_profile.setdefault(r.get("agent_profile"), []).append(r)
 
     inbox = []
@@ -682,7 +683,7 @@ def evaluate(results: dict) -> list:
         if f.exists():
             body = f.read_text(encoding="utf-8", errors="replace")
             art_info[k] = {"path": str(f), "bytes": f.stat().st_size, "sha256": sha256(f),
-                           "headings": [l for l in body.splitlines() if l.startswith("#")][:25]}
+                           "headings": [ln for ln in body.splitlines() if ln.startswith("#")][:25]}
             write(adir / Path(rel).name, body)
         else:
             art_info[k] = None
@@ -704,7 +705,7 @@ def evaluate(results: dict) -> list:
                        cid, cap and cap.get("agent_profile"), cap and cap.get("provider"))))
     for profile, prov in (("claude_engineer", "claude_code"), ("agy_researcher", "antigravity_cli")):
         r = one(profile)
-        checks.append(("Captain launches {} with provider {}".format(profile, prov),
+        checks.append((f"Captain launches {profile} with provider {prov}",
                        ok(r is not None and r.get("provider") == prov and r.get("caller_id") == cid),
                        "terminal {} provider={} caller_id={} (captain={})".format(
                            r and r.get("id"), r and r.get("provider"), r and r.get("caller_id"), cid)))
@@ -713,7 +714,7 @@ def evaluate(results: dict) -> list:
     cb_agy = bool(ag and ag.get("id") in senders)
     checks.append(("Both workers return callbacks to the captain (CAO inbox)",
                    ok(cb_eng and cb_agy),
-                   "engineer callback={} agy callback={} ({} inbox msgs)".format(cb_eng, cb_agy, len(inbox))))
+                   f"engineer callback={cb_eng} agy callback={cb_agy} ({len(inbox)} inbox msgs)"))
     wa = art_info.get("engineer"), art_info.get("agy")
     checks.append(("Both worker artifacts exist and are non-empty",
                    ok(all(a and a["bytes"] > 0 for a in wa)),
@@ -735,7 +736,7 @@ def evaluate(results: dict) -> list:
     if art_info.get("synthesis"):
         body = (REPO / ART["synthesis"]).read_text(errors="replace")
         hits = re.findall(r"(?i)(NOT VERIFIED|unknown|uncertain\w*|unverified|assumption)", body)
-        unc = "{} uncertainty markers".format(len(hits))
+        unc = f"{len(hits)} uncertainty markers"
     checks.append(("Synthesis records unresolved uncertainty (heuristic - read it)",
                    "MANUAL" if unc else "FAIL", unc or "no synthesis"))
     # Extra guardrail checks (not in TASK-0001 but matter before real work).
@@ -770,8 +771,8 @@ def report(results: dict, checks: list, fatal: str = "") -> None:
         results["fatal"] = fatal
     write(EVID / "summary.json", json.dumps(results, indent=2, default=str))
 
-    L = ["# CAO two-provider validation — {}".format(verdict), "",
-         "- Run: `{}`".format(RUN_DIR), "- Started: {}  Elapsed: {} min".format(TS, results.get("elapsed_minutes")),
+    L = [f"# CAO two-provider validation — {verdict}", "",
+         f"- Run: `{RUN_DIR}`", "- Started: {}  Elapsed: {} min".format(TS, results.get("elapsed_minutes")),
          "- CAO API: {}  backend: {}".format(API, results.get("terminal_backend")),
          "- Versions: {}".format(json.dumps(results.get("versions", {}))),
          "- agy model: `{}` (listed by `agy models`: {})".format(
@@ -806,16 +807,16 @@ def report(results: dict, checks: list, fatal: str = "") -> None:
     write(EVID / "ACCEPTANCE.md", "\n".join(L) + "\n")
     log("VERDICT: {}  ->  {}".format(verdict, EVID / "ACCEPTANCE.md"))
     for c in checks:
-        log("  [{:<6}] {} :: {}".format(c[1], c[0], c[2]))
+        log(f"  [{c[1]:<6}] {c[0]} :: {c[2]}")
 
 
 def cleanup(results: dict) -> None:
     if not KEEP_SESSION and results.get("conductor_id"):
-        log("shutting down session {} (KEEP_SESSION=1 to keep it)".format(SESSION))
+        log(f"shutting down session {SESSION} (KEEP_SESSION=1 to keep it)")
         run(["cao", "shutdown", "--session", SESSION], timeout=120)
     if _server_proc is not None:
         if KEEP_SESSION:
-            log("leaving harness-started cao-server running (pid {})".format(_server_proc.pid))
+            log(f"leaving harness-started cao-server running (pid {_server_proc.pid})")
         else:
             log("stopping harness-started cao-server")
             try:
@@ -830,7 +831,7 @@ def main() -> int:
     EVID.mkdir(parents=True, exist_ok=True)
     TERM_DIR.mkdir(parents=True, exist_ok=True)
     _log_fh = open(EVID / "harness.log", "a")
-    log("CAO validation harness  kit={}  run={}".format(KIT, RUN_DIR))
+    log(f"CAO validation harness  kit={KIT}  run={RUN_DIR}")
     results = {"started": TS, "kit": str(KIT), "repo": str(REPO), "api": API}
     checks, fatal = [], ""
     try:
@@ -847,15 +848,13 @@ def main() -> int:
             try:
                 checks = evaluate(results)
             except Exception as ee:  # pragma: no cover
-                log("evaluate after fatal failed: {}".format(ee))
+                log(f"evaluate after fatal failed: {ee}")
     except KeyboardInterrupt:
         fatal = "interrupted by user"
         log("interrupted; collecting what exists")
         if REPO.exists():
-            try:
+            with contextlib.suppress(Exception):
                 checks = evaluate(results)
-            except Exception:
-                pass
     finally:
         try:
             report(results, checks, fatal)

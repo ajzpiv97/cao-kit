@@ -33,6 +33,7 @@ ignore = ["D203", "D213"]       # D203/D213 conflict with the Google convention'
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"]                # tests are named descriptively; no docstring noise
+"scripts/validate_e2e.py" = ["D", "E501", "SIM115"]  # legacy live-agent harness: style-only rules
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
