@@ -43,7 +43,7 @@ git status --short
 
 ## Team plan
 
-Filled in by the captain. On the plan path the human approves this section before anything launches. Mark the path taken: **Path:** FAST | PLAN
+Filled in by the captain, with an estimate for every agent including the captain. On the plan path the human approves this section before anything launches. Cost is a rough range of fresh tokens (input + output + cache writes, no cache reads) with a low/med/high label and a few words of basis. Mark the path taken: **Path:** FAST | PLAN
 
 | Sub-task | Depends on | Agent (profile/role) | Why this agent | Parallel with | Est. cost |
 |---|---|---|---|---|---|
