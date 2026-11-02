@@ -64,15 +64,15 @@ Change the CAO version only with `uv tool install --force 'cli-agent-orchestrato
 | Command | Purpose |
 |---|---|
 | `caokit doctor` | Check CLIs, auth, CAO version, a single CAO install (uv tool only), the server and its web UI, and the roster |
-| `caokit company create` | Write `caokit.toml` (role to tool and model), with every guardrail checked |
+| `caokit company create [--general\|--engineer\|--scout\|--inspector TOOL[:MODEL]] [--force]` | Write `caokit.toml` (role to tool and model), with every guardrail checked; `--force` overwrites an existing file |
 | `caokit install [--project REPO]` | Render, validate, install and byte-verify profiles; `--replace-legacy` / `--remove-legacy` for old copies |
 | `caokit uninstall [--project REPO] [--yes]` | Remove a roster's profiles from CAO; a dry run unless `--yes`. Leftover `agent-context` copies are moved to a backup, not deleted |
-| `caokit init REPO [--name P] [--override ROLE=TOOL[:MODEL]]` | Scaffold `.company/` in a git repo; `--name` namespaces its profiles |
+| `caokit init REPO [--name P] [--override ROLE=TOOL[:MODEL]] [--force-project]` | Scaffold `.company/` in a git repo; `--name` namespaces its profiles; `--force-project` overwrites an existing project file |
 | `caokit server` | Run `cao-server` (tmux backend) in the foreground |
 | `caokit launch [REPO]` | Start the project's General; `--prompt-file F`, `--headless`, `--auto-approve` |
-| `caokit status [REPO]` / `send MESSAGE` / `stop [REPO]` | Show sessions and workers, message the General, shut the session down |
+| `caokit status [REPO]` / `send MESSAGE [--repo REPO] [--timeout S]` / `stop [REPO]` | Show sessions and workers, message the General (waits up to 600 s by default), shut the session down |
 | `caokit tasks [list] [REPO]` | Open tasks and what blocks them (`--all` includes finished ones) |
-| `caokit tasks archive [REPO]` | Move `ACCEPTED`, `CANCELLED` and `FAILED` tasks to `.company/tasks/archive/` |
+| `caokit tasks archive [REPO] [--delete]` | Move `ACCEPTED`, `CANCELLED` and `FAILED` tasks to `.company/tasks/archive/`; `--delete` removes them instead |
 | `caokit tasks policy --keep-archived-days N` | Set how long a project keeps archived tasks |
 | `caokit tasks prune [REPO] [--days N] [--yes]` | Delete archived tasks older than the policy; a dry run unless `--yes` |
 | `caokit tasks schedule [REPO] [--install\|--remove] [--at HH:MM]` | Print, add or remove the daily cron entry that archives and prunes |
