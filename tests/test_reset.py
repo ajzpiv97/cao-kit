@@ -3,7 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from caokit.config import Binding, Config
 from caokit.doctor import Report, _check_server
+from caokit.install import uninstall_profiles
 from caokit.reset import ResetError, _cao_server_pids, plan, run_reset
 
 
@@ -111,6 +113,68 @@ class ServerCheckTests(unittest.TestCase):
         out = self.check({"health": R(0, '{"status":"ok"}'), "/": R(0, "404")})
         self.assertEqual(out[1][0], "warn")
         self.assertIn("restart", out[1][1])
+
+
+class UninstallTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.home = Path(self.tmp.name)
+        (self.home / "agent-store").mkdir()
+        self.cfg = Config(
+            roles={
+                "general": Binding("claude", "sonnet"),
+                "engineer": Binding("claude", "opus"),
+                "scout": Binding("antigravity", "gemini-3.8-flash-medium"),
+                "inspector": Binding("antigravity", "gemini-4-argon-high"),
+            },
+            project="pj",
+        )
+
+    def install(self, *names):
+        (self.home / "agent-context").mkdir(exist_ok=True)
+        for n in names:
+            (self.home / "agent-store" / (n + ".md")).write_text("x")
+            (self.home / "agent-context" / (n + ".md")).write_text("x")
+
+    def test_dry_run_runs_nothing(self):
+        self.install("pj_general-claude")
+        calls = []
+        res = uninstall_profiles(self.cfg, self.home, make_runner(calls))
+        self.assertEqual(res.removed, ["pj_general-claude"])
+        self.assertEqual(calls, [])
+
+    def test_removes_only_this_projects_installed_profiles(self):
+        self.install("pj_general-claude", "pj_engineer-claude", "other_general-claude")
+        calls = []
+        res = uninstall_profiles(self.cfg, self.home, make_runner(calls), apply=True)
+        self.assertEqual(res.removed, ["pj_general-claude", "pj_engineer-claude"])
+        self.assertEqual(len(res.missing), 2)
+        self.assertEqual(calls, [["cao", "profile", "remove", n, "--yes"] for n in res.removed])
+
+    def test_context_copy_is_moved_to_a_backup_not_deleted(self):
+        self.install("pj_general-claude")
+        res = uninstall_profiles(self.cfg, self.home, make_runner([]), apply=True)
+        self.assertFalse((self.home / "agent-context" / "pj_general-claude.md").exists())
+        self.assertTrue(
+            res.backup and (res.backup / "agent-context" / "pj_general-claude.md").exists()
+        )
+
+    def test_context_only_leftover_is_cleaned_without_calling_cao(self):
+        (self.home / "agent-context").mkdir()
+        (self.home / "agent-context" / "pj_general-claude.md").write_text("x")
+        calls = []
+        res = uninstall_profiles(self.cfg, self.home, make_runner(calls), apply=True)
+        self.assertEqual((res.removed, calls), (["pj_general-claude"], []))
+
+    def test_cao_error_text_counts_as_failure(self):
+        self.install("pj_general-claude")
+
+        def runner(argv):
+            return R(0, "Error: refused")
+
+        res = uninstall_profiles(self.cfg, self.home, runner, apply=True)
+        self.assertEqual(res.failed, ["pj_general-claude"])
 
 
 if __name__ == "__main__":

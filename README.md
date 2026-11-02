@@ -66,6 +66,7 @@ Change the CAO version only with `uv tool install --force 'cli-agent-orchestrato
 | `caokit doctor` | Check CLIs, auth, CAO version, a single CAO install (uv tool only), the server and its web UI, and the roster |
 | `caokit company create` | Write `caokit.toml` (role to tool and model), with every guardrail checked |
 | `caokit install [--project REPO]` | Render, validate, install and byte-verify profiles; `--replace-legacy` / `--remove-legacy` for old copies |
+| `caokit uninstall [--project REPO] [--yes]` | Remove a roster's profiles from CAO; a dry run unless `--yes`. Leftover `agent-context` copies are moved to a backup, not deleted |
 | `caokit init REPO [--name P] [--override ROLE=TOOL[:MODEL]]` | Scaffold `.company/` in a git repo; `--name` namespaces its profiles |
 | `caokit server` | Run `cao-server` (tmux backend) in the foreground |
 | `caokit launch [REPO]` | Start the project's General; `--prompt-file F`, `--headless`, `--auto-approve` |
@@ -102,7 +103,7 @@ caokit launch ~/proj-a                                     # session cao-proja
 - All guardrails (cross-provider inspection, soft-tool opt-ins, model validation) re-run on the merged config.
 - Without `--name`, `init` uses shared `<role>-<tool>` profiles, and the session is named after the directory.
 - Each project is its own CAO session; one `cao-server` serves them all.
-- Not yet built: removing a project's profiles from CAO. Delete `<project>_*` from the profile store by hand.
+- Remove a project's profiles with `caokit uninstall --project ~/proj-a --yes` (it touches only that project's names).
 
 ### Policy
 
@@ -233,7 +234,6 @@ The old Codex profile files are in git history.
 
 ## Planned
 
-- Removing a project's profiles from CAO (`caokit uninstall`).
 - CAO's `use_worktree` for one worktree per task.
 
 ## More

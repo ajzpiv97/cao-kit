@@ -58,7 +58,7 @@ Leftover pre-v1 profiles (`startup_captain`, `claude_engineer` and the others) i
 
 ## `caokit install` refuses a profile because of a file in `~/.kiro/agents`
 
-CAO also records Kiro agent files. If `~/.kiro/agents/<name>.json` exists for a profile that is no longer installed, CAO refuses to install a profile with the same name and tells you to delete the file. macOS is case-insensitive, so `proja` collides with a leftover `projA`. Delete that one file by hand after checking it is a leftover, then rerun the install.
+CAO also records Kiro agent files. If `~/.kiro/agents/<name>.json` exists for a profile that is no longer installed, CAO refuses to install a profile with the same name and tells you to delete the file. macOS is case-insensitive, so `proja` collides with a leftover `projA`. Delete that one file by hand after checking it is a leftover, then rerun the install. `caokit uninstall` does not touch `~/.kiro`.
 
 ## The web UI shows nothing / 404
 

@@ -12,7 +12,7 @@ New Python CLI `caokit` (Python >= 3.11, no runtime dependencies, `uv tool insta
 - `validate_e2e.py` now runs entirely through `caokit` (project `e2e`, pinned roster).
 
 ### Added
-- `caokit launch`, `status`, `send`, `stop`, `server`, `reset`.
+- `caokit launch`, `status`, `send`, `stop`, `server`, `reset`, `uninstall`.
 - `caokit doctor` also probes the CAO server and its web UI.
 - `allow_soft_general` policy: `general` can be bound to a soft-enforcement tool such as Antigravity with `--allow-soft-general`.
 - `caokit tasks policy|prune|schedule`: per-project retention for archived tasks and an opt-in cron entry.
@@ -32,7 +32,7 @@ New Python CLI `caokit` (Python >= 3.11, no runtime dependencies, `uv tool insta
   `<project>_<role>-<tool>` profiles so projects never overwrite each other in CAO's global store.
   Measured on CAO 2.5.4: reinstalling the same name with another model silently replaces it, and a per-call
   model override is ignored for Antigravity profiles that pin a model, hence namespaced profiles.
-- Not yet built: `validate`, `close`. No command removes a project's profiles yet.
+- Not yet built: `validate`, `close`. 
 
 ## v0.1.0 — baseline (2026-11-01)
 

@@ -189,3 +189,54 @@ def install_profiles(
             out(f"  installed {name} (verified byte for byte)")
             res.installed.append(name)
     return res
+
+
+@dataclass
+class UninstallResult:
+    """Per-profile outcome of an uninstall run."""
+
+    removed: list[str] = field(default_factory=list)
+    missing: list[str] = field(default_factory=list)  # no copy anywhere in CAO's home
+    failed: list[str] = field(default_factory=list)
+    backup: Path | None = None  # where leftover ``agent-context`` copies were moved
+
+
+def uninstall_profiles(
+    cfg: Config,
+    home: Path | None = None,
+    runner: Runner = default_runner,
+    apply: bool = False,
+) -> UninstallResult:
+    """Remove the roster's profiles from CAO.
+
+    ``cao profile remove`` deletes only the ``agent-store`` copy. CAO also keeps an
+    ``agent-context`` copy that keeps the profile listed as installed, so that copy is
+    moved to a backup folder (never deleted). Only the names this config renders are
+    touched, so one project's ``<project>_*`` profiles go and no other project's do.
+    Reinstalling restores them.
+
+    Args:
+        cfg: The configuration whose profiles to remove.
+        home: CAO home directory (default :func:`cao_home`).
+        runner: Command runner (injectable for tests).
+        apply: Actually remove. When False nothing is run and every profile with a copy
+            is reported as ``removed``, so the caller can show what would happen.
+
+    Returns:
+        Which profiles were (or would be) removed, were not installed, or failed.
+    """
+    home = home or cao_home()
+    res = UninstallResult()
+    for name in render_all(cfg):
+        in_store = (home / "agent-store" / (name + ".md")).exists()
+        in_context = (home / "agent-context" / (name + ".md")).exists()
+        if not (in_store or in_context):
+            res.missing.append(name)
+        elif not apply:
+            res.removed.append(name)
+        elif in_store and _failed_output(runner(["cao", "profile", "remove", name, "--yes"])):
+            res.failed.append(name)
+        else:
+            res.backup = _backup(home, [name], res.backup)
+            res.removed.append(name)
+    return res

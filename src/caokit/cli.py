@@ -13,7 +13,14 @@ from .company import CompanyError, create_company, parse_binding, write_company
 from .config import Binding, ConfigError, default_path, load_config
 from .doctor import format_report, run_doctor
 from .init_project import InitError, init_project
-from .install import InstallError, cao_home, find_legacy, install_profiles, remove_legacy
+from .install import (
+    InstallError,
+    cao_home,
+    find_legacy,
+    install_profiles,
+    remove_legacy,
+    uninstall_profiles,
+)
 from .launch import (
     build_launch_argv,
     build_send_argv,
@@ -172,6 +179,37 @@ def cmd_install(a: argparse.Namespace) -> int:
             print(f"Moved to {remove_legacy(home, legacy)}")
         else:
             print("Left in place. Run `caokit install --remove-legacy` to move them to a backup.")
+    return 0
+
+
+def cmd_uninstall(a: argparse.Namespace) -> int:
+    """Run ``caokit uninstall [--project REPO] [--yes]``: remove the roster's CAO profiles.
+
+    Args:
+        a: Parsed arguments (``config``, ``project``, ``yes``).
+
+    Returns:
+        0 on success or on a dry run, 1 if the config is invalid or a removal failed.
+    """
+    try:
+        cfg = load_config(a.config)
+        if a.project:
+            cfg = effective_config(Path(a.project), cfg)
+        res = uninstall_profiles(cfg, apply=a.yes)
+    except (ConfigError, InstallError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    verb = "Removed" if a.yes else "Would remove"
+    print(f"{verb}: {', '.join(res.removed) or 'nothing'}")
+    if res.missing:
+        print(f"Not installed: {', '.join(res.missing)}")
+    if res.backup:
+        print(f"Leftover agent-context copies moved to {res.backup}")
+    if res.failed:
+        print(f"FAILED: {', '.join(res.failed)}", file=sys.stderr)
+        return 1
+    if res.removed and not a.yes:
+        print("Dry run only. Rerun with --yes to remove them.")
     return 0
 
 
@@ -487,6 +525,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="install this project's namespaced profiles (needs .company/caokit.toml)",
     )
     ins.set_defaults(fn=cmd_install)
+    un = sub.add_parser("uninstall", help="remove the roster's profiles from CAO")
+    un.add_argument("--project", metavar="REPO", help="remove this project's namespaced profiles")
+    un.add_argument("--yes", action="store_true", help="do it (default is a dry run)")
+    un.set_defaults(fn=cmd_uninstall)
     ini = sub.add_parser("init", help="scaffold .company/ in a git repo")
     ini.add_argument("repo")
     ini.add_argument("--name", metavar="PROJECT", help="project slug; namespaces its profiles")
