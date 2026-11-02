@@ -3,6 +3,7 @@
 - **State:** PROPOSED
 - **Owner role:** <role, e.g. `engineer`; the General resolves it via ROSTER.md>
 - **Reviewer role:** <role `inspector`; its tool must differ from the owner's for source changes>
+- **Depends on:** <TASK-NNNN, TASK-NNNN, or `none`; the task is blocked until each is ACCEPTED>
 - **Created:** <YYYY-MM-DD>
 - **Approved by human:** <date and how, filled in only after approval>
 

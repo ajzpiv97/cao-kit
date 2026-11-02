@@ -14,6 +14,7 @@ from .init_project import InitError, init_project
 from .install import InstallError, cao_home, find_legacy, install_profiles, remove_legacy
 from .project import check_effective, effective_config, resolve_project
 from .render import profile_name
+from .tasks import TaskError, archive_finished, format_tasks, load_tasks, with_blockers
 
 
 def _ask(prompt: str, default: str) -> str:
@@ -198,6 +199,34 @@ def cmd_init(a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_tasks(a: argparse.Namespace) -> int:
+    """Run ``caokit tasks [list|archive]``.
+
+    Args:
+        a: Parsed arguments (``action``, ``repo``, ``all``, ``delete``).
+
+    Returns:
+        0 on success, 1 if the folder is missing or the dependencies loop.
+    """
+    action, repo_arg = a.action, a.repo
+    if action not in ("list", "archive"):  # `caokit tasks <repo>` means list
+        action, repo_arg = "list", action
+    repo = Path(repo_arg).resolve()
+    try:
+        if action == "archive":
+            done = archive_finished(repo, delete=a.delete)
+            verb = "Deleted" if a.delete else "Archived"
+            print(f"{verb} {len(done)} finished task(s).")
+            for t in done:
+                print(f"  {t.id} ({t.state})")
+            return 0
+        print(format_tasks(with_blockers(load_tasks(repo)), show_all=a.all))
+    except TaskError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point for the ``caokit`` console script.
 
@@ -254,6 +283,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--force-project", action="store_true", help="overwrite an existing .company/caokit.toml"
     )
     ini.set_defaults(fn=cmd_init)
+    tk = sub.add_parser("tasks", help="list open tasks and blockers, or archive finished ones")
+    tk.add_argument("action", nargs="?", default="list", help="list (default) or archive")
+    tk.add_argument("repo", nargs="?", default=".")
+    tk.add_argument("--all", action="store_true", help="list: include finished tasks")
+    tk.add_argument("--delete", action="store_true", help="archive: delete instead of moving")
+    tk.set_defaults(fn=cmd_tasks)
     a = p.parse_args(argv)
     code: int = a.fn(a)  # each subcommand registered its handler via set_defaults(fn=...)
     return code

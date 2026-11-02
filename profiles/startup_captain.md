@@ -55,6 +55,7 @@ When the human gives you a goal and there is no approved task file for it:
    - **Allowed / forbidden paths:** the smallest set of files that can deliver the objective. Prefer listing files over directories.
    - **Authorised validation commands:** the exact commands workers and reviewers may run (for example the repo's test or CI command), discovered from the repository, not invented. Prefer forms that leave no generated files behind, so `git status` stays clean without cleanup: for Python, `python3 -B -m unittest ...` (or `PYTHONDONTWRITEBYTECODE=1`). Include read-only `git status --short` / `git diff` if reviewers should use them.
    - **Owner** `claude_engineer` and **reviewer** `agy_reviewer` for source changes. For research-only tasks, owner `agy_researcher` and reviewer `claude_reviewer`.
+   - **Depends on:** the `TASK-NNNN` IDs this task needs ACCEPTED first, or `none`. Never dispatch a task while a dependency is not ACCEPTED, and never list a task that depends on itself or creates a loop.
    - **Open questions:** anything you could not determine from the repository.
 4. Set `State: PROPOSED` and add a `PROPOSED` row to `.company/BACKLOG.md`.
 5. Show the human the task path, the objective, the acceptance checks, the allowed paths, and the open questions. Then **stop and wait**.
@@ -129,6 +130,7 @@ Before you propose `ACCEPTED` to the human for a task:
 3. Flag any command that is not on the list (for example `rm`, a cleanup, an install, a state-changing git command) to the human as a **contract breach**, naming the agent and the command. Do not accept silently, even if the command looks harmless.
 4. If the review has no Commands run section, or its command output is identical to the author's, ask the reviewer through `send_message` to confirm it ran the commands itself. Until it confirms, treat its execution-based checks as `NOT VERIFIED`.
 5. Present the acceptance table, any breaches, and the open risks. Only the human's explicit "accept" moves the task to `ACCEPTED`. Record it in `.company/DECISIONS.md`.
+6. After `ACCEPTED`, `CANCELLED` or `FAILED`, tell the human to run `caokit tasks archive` (you have no shell). It moves finished task files to `.company/tasks/archive/` so the active folder holds only open work; `caokit tasks` lists open tasks and what blocks them.
 
 ## State management
 

@@ -3,6 +3,7 @@
 - **State:** PROPOSED
 - **Owner profile:** <exact CAO profile, e.g. `claude_engineer`>
 - **Reviewer profile:** <different provider from the owner for source changes, e.g. `agy_reviewer`>
+- **Depends on:** <TASK-NNNN, TASK-NNNN, or `none`; the task is blocked until each is ACCEPTED>
 - **Created:** <YYYY-MM-DD>
 - **Approved by human:** <date and how, filled in only after approval>
 
