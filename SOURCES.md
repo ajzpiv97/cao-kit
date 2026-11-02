@@ -1,6 +1,6 @@
 # Primary documentation used
 
-This kit was assembled on 2026-09-26 for macOS, CAO 2.5.0, and current provider CLIs. Re-check these pages before production use because the CLIs and profile schemas change frequently.
+This kit targets macOS, CAO 2.5.4 (pinned), and current provider CLIs; it was last validated end to end on 2026-11-02. Re-check these pages before production use because the CLIs and profile schemas change frequently.
 
 ## CLI Agent Orchestrator
 
@@ -26,4 +26,4 @@ This kit was assembled on 2026-09-26 for macOS, CAO 2.5.0, and current provider 
 
 ## Compatibility note
 
-Current Codex versions load `--profile NAME` from `~/.codex/NAME.config.toml`. Codex 0.134.0 and later no longer reads the older `[profiles.NAME]` tables. The kit includes both the current files and a clearly separated legacy fallback note.
+Codex is parked and cannot be selected. Current Codex versions load `--profile NAME` from `~/.codex/NAME.config.toml`, and Codex 0.134.0 and later no longer reads the older `[profiles.NAME]` tables. The old Codex profile files are in git history.
