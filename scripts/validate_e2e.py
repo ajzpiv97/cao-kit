@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """End-to-end validation harness for the CAO Claude + Antigravity agent company.
 
-Runs the documented TASK-0001 smoke test against a throwaway Git repository
-and writes machine-checked evidence that the routing actually happened:
+Runs the documented TASK-0001 smoke test against a throwaway Git repository, driven
+entirely through the `caokit` CLI (init, install, launch, send), and writes
+machine-checked evidence that the routing actually happened:
 
-    Claude captain (startup_captain / claude_code)
-    ├── claude_engineer  (claude_code)      -- assign, async callback
-    ├── agy_researcher   (antigravity_cli)  -- assign, async callback
-    └── claude_reviewer  (claude_code)      -- handoff, sync
+    General (general role, claude_code)
+    ├── engineer  (claude_code)      -- assign, async callback
+    ├── scout     (antigravity_cli)  -- assign, async callback
+    └── inspector (antigravity_cli)  -- handoff, sync
 
 Evidence comes from CAO's own API (terminal records incl. provider and
 caller_id, inbox messages = callbacks, full terminal transcripts), from Git
 (proof that no application source changed), and from the artifact files.
 
-Stdlib only; works with the macOS system python3 (3.9+).
+Needs Python 3.11+ (caokit). Otherwise stdlib only.
 
 Environment knobs:
     TIMEOUT_MIN      overall wait for the synthesis (default 60)
@@ -45,7 +46,23 @@ import urllib.request
 from pathlib import Path
 
 KIT = Path(__file__).resolve().parent.parent
-SESSION = "cao-agent-company"
+sys.path.insert(0, str(KIT / "src"))
+from caokit.render import profile_name  # noqa: E402
+
+PROJECT = "e2e"  # namespaces the harness's profiles so they never touch a real project's
+SESSION = "cao-" + PROJECT  # CAO prefixes the --session-name it is given
+# Pinned so the run does not depend on the operator's own caokit.toml.
+ROSTER = {
+    "general": ("claude", "sonnet"),
+    "engineer": ("claude", "sonnet"),
+    "scout": ("antigravity", "gemini-3.8-flash-medium"),
+    "inspector": ("antigravity", "gemini-4-argon-high"),
+}
+PROVIDER = {"claude": "claude_code", "antigravity": "antigravity_cli"}
+PROFILE = {role: profile_name(role, tool, PROJECT) for role, (tool, _m) in ROSTER.items()}
+EXPECTED = {PROFILE[role]: PROVIDER[tool] for role, (tool, _m) in ROSTER.items()}
+CAOKIT = [sys.executable, "-m", "caokit.cli"]
+CAOKIT_ENV = dict(os.environ, PYTHONPATH=str(KIT / "src") + os.pathsep + os.environ.get("PYTHONPATH", ""))
 API = "http://{}:{}".format(
     os.environ.get("CAO_API_HOST", "127.0.0.1"), os.environ.get("CAO_API_PORT", "9889")
 )
@@ -57,13 +74,6 @@ KEEP_SESSION = os.environ.get("KEEP_SESSION", "0") == "1"
 FORCE_REPLACE = os.environ.get("FORCE_REPLACE", "0") == "1"
 SKIP_AGY_MODELS = os.environ.get("SKIP_AGY_MODELS", "0") == "1"
 
-EXPECTED = {
-    "startup_captain": "claude_code",
-    "claude_engineer": "claude_code",
-    "agy_reviewer": "antigravity_cli",
-    "agy_researcher": "antigravity_cli",
-    "claude_reviewer": "claude_code",
-}
 REQUIRED_CMDS = [
     "git", "tmux", "uv", "cao", "cao-server", "cao-mcp-server",
     "claude", "agy", "python3",
@@ -72,7 +82,7 @@ ART = {
     "engineer": ".company/artifacts/TASK-0001-engineering-assessment.md",
     "agy": ".company/research/TASK-0001-agy-product-assessment.md",
     "review": ".company/reviews/TASK-0001-cross-provider-review.md",
-    "synthesis": ".company/decisions/TASK-0001-captain-synthesis.md",
+    "synthesis": ".company/decisions/TASK-0001-general-synthesis.md",
 }
 ALLOWED_WRITES = {
     ".company/TEAM.md",
@@ -148,40 +158,6 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def frontmatter(path: Path) -> dict:
-    """Tiny frontmatter reader: top-level `key: value` scalars only."""
-    out = {}
-    text = path.read_text(encoding="utf-8")
-    m = re.match(r"^---\n(.*?)\n---\n", text, re.S)
-    if not m:
-        return out
-    for line in m.group(1).splitlines():
-        mm = re.match(r"^([A-Za-z_][\w-]*):\s*(.+?)\s*$", line)
-        if mm:
-            out[mm.group(1)] = mm.group(2).strip().strip('"').strip("'")
-    return out
-
-
-def codex_config_block(path: Path) -> dict:
-    """Read the nested `codexConfig:` mapping (one level, scalar values)."""
-    out, inside = {}, False
-    text = path.read_text(encoding="utf-8")
-    m = re.match(r"^---\n(.*?)\n---\n", text, re.S)
-    for line in (m.group(1).splitlines() if m else []):
-        if re.match(r"^codexConfig:\s*$", line):
-            inside = True
-            continue
-        if inside:
-            if not line.startswith(" "):
-                break
-            s = line.strip()
-            if not s or s.startswith("#"):
-                continue
-            k, _, v = s.partition(":")
-            out[k.strip()] = v.strip().strip('"').strip("'")
-    return out
-
-
 class Fatal(Exception):
     pass
 
@@ -210,21 +186,8 @@ def preflight(results: dict) -> None:
     if missing:
         raise Fatal("Missing commands on PATH: {}".format(", ".join(missing)))
 
-    # Rendered profiles: providers + agy model.
-    gp = KIT / "generated-profiles"
-    fm = {}
-    for name, prov in EXPECTED.items():
-        f = gp / (name + ".md")
-        if not f.exists():
-            raise Fatal(f"Rendered profile missing: {f} (run scripts/10-render-profiles.sh)")
-        fm[name] = frontmatter(f)
-        if fm[name].get("provider") != prov:
-            raise Fatal("{} declares provider {!r}, expected {!r}".format(
-                name, fm[name].get("provider"), prov))
-    model = fm["agy_researcher"].get("model", "")
+    model = ROSTER["scout"][1]
     results["agy_model_configured"] = model
-    if "__AGY_MODEL__" in model or not model:
-        raise Fatal("agy_researcher model placeholder not rendered")
 
     # agy models: is the configured model a name agy actually lists?
     if SKIP_AGY_MODELS:
@@ -239,10 +202,8 @@ def preflight(results: dict) -> None:
                 f"(see evidence/agy-models.txt). CAO passes it as `agy --model {model!r}`; "
                 "the live run will show whether agy accepts it.")
 
-    rmodel = fm["agy_reviewer"].get("model", "")
+    rmodel = ROSTER["inspector"][1]
     results["agy_review_model_configured"] = rmodel
-    if "__AGY_MODEL__" in rmodel or not rmodel:
-        raise Fatal("agy_reviewer model placeholder not rendered")
     log("preflight ok: versions={} agy_model={!r} (listed={}) agy_review_model={!r}".format(
         results.get("versions"), model, results["agy_model_listed"], rmodel))
 
@@ -277,69 +238,27 @@ def ensure_server(results: dict) -> None:
                         h.get("terminal_backend")))
 
 
-def ensure_profiles(results: dict) -> None:
-    """Installed CAO profiles must exist, bind the right provider and match the kit."""
-    log("PHASE 3/6 installed CAO profiles")
-
-    keys = ("provider", "model", "codexProfile", "permissionMode", "role")
-
-    def check():
-        report, stale = {}, []
-        for name, _prov in EXPECTED.items():
-            info = api_try("GET", f"/agents/profiles/{name}", default=None)
-            gpath = KIT / "generated-profiles" / (name + ".md")
-            gen = frontmatter(gpath)
-            info = info if isinstance(info, dict) else None
-            drift = {}
-            if info is not None:
-                for k in keys:
-                    if str(info.get(k) or "") != str(gen.get(k) or ""):
-                        drift[k] = {"installed": info.get(k), "generated": gen.get(k)}
-                gcc = codex_config_block(gpath)
-                icc = info.get("codexConfig") or {}
-                if {k: str(v) for k, v in icc.items()} != gcc:
-                    drift["codexConfig"] = {"installed": icc, "generated": gcc}
-                # Full-text check: CAO stores profiles byte-for-byte, so any body edit
-                # (instructions, tool lists) must show up here even when frontmatter
-                # keys are unchanged.
-                src = api_try("GET", f"/agents/profiles/{name}/source", default=None)
-                stored = src.get("content") if isinstance(src, dict) else None
-                if stored is not None:
-                    gtext = gpath.read_text(encoding="utf-8")
-                    if stored.strip() != gtext.strip():
-                        drift["full_text"] = f"installed text differs from generated-profiles/{name}.md"
-            report[name] = {
-                "installed": info is not None,
-                "provider": info.get("provider") if info else None,
-                "model": info.get("model") if info else None,
-                "codexProfile": info.get("codexProfile") if info else None,
-                "permissionMode": info.get("permissionMode") if info else None,
-                "allowedTools": info.get("allowedTools") if info else None,
-                "drift_vs_generated": drift or "none",
-            }
-            if info is None or drift:
-                stale.append(name)
-        return report, stale
-
-    report, stale = check()
-    if stale:
-        log(f"profiles missing/stale vs generated-profiles: {stale} -> running 30-install-cao-profiles.sh")
-        env = dict(os.environ, REPLACE_LEGACY="1")  # back up + replace pre-2.5.3 copies
-        rc, out = run([str(KIT / "scripts" / "30-install-cao-profiles.sh")], timeout=300,
-                      cwd=str(KIT), env=env)
-        write(EVID / "install-profiles.txt", out)
-        if rc != 0 or "Error:" in out and "Retrying" not in out:
-            raise Fatal("30-install-cao-profiles.sh failed (see evidence/install-profiles.txt)")
-        report, stale = check()
-        results["profiles_reinstalled"] = True
-        if stale:
-            write(EVID / "installed-profiles.json", json.dumps(report, indent=2))
-            raise Fatal("Installed CAO profiles still differ from generated-profiles after "
-                        f"reinstall: {stale} (see evidence/installed-profiles.json and "
-                        "install-profiles.txt). Refusing to test stale profiles.")
+def install_profiles(results: dict) -> None:
+    """Install the project's namespaced profiles with caokit, then confirm CAO lists them."""
+    log("PHASE 3/6 install the project's CAO profiles (caokit install --project)")
+    rc, out = run(CAOKIT + ["install", "--project", str(REPO)], timeout=300, env=CAOKIT_ENV)
+    write(EVID / "install-profiles.txt", out)
+    if rc != 0:
+        raise Fatal("caokit install failed (see evidence/install-profiles.txt)")
+    report, bad = {}, []
+    for name, prov in EXPECTED.items():
+        info = api_try("GET", f"/agents/profiles/{name}", default=None)
+        info = info if isinstance(info, dict) else None
+        report[name] = {
+            "installed": info is not None,
+            "provider": info.get("provider") if info else None,
+            "model": info.get("model") if info else None,
+            "allowedTools": info.get("allowedTools") if info else None,
+        }
+        if info is None or info.get("provider") != prov:
+            bad.append(name)
     write(EVID / "installed-profiles.json", json.dumps(report, indent=2))
     results["installed_profiles"] = report
-    bad = [n for n, r in report.items() if not r["installed"] or (r["provider"] and r["provider"] != EXPECTED[n])]
     if bad:
         raise Fatal(f"Installed profiles wrong/missing after install: {bad}")
     log("profiles ok: {}".format({n: r["provider"] for n, r in report.items()}))
@@ -456,6 +375,12 @@ def git(*args, timeout=60):
     return run(["git", "-C", str(REPO)] + list(args), timeout=timeout)
 
 
+def company_snapshot() -> dict:
+    """Hash every file under .company/. The scaffold's .gitignore hides these from git."""
+    root = REPO / ".company"
+    return {str(p.relative_to(REPO)): sha256(p) for p in sorted(root.rglob("*")) if p.is_file()}
+
+
 def make_repo(results: dict) -> None:
     log("PHASE 4/6 throwaway repository + .company scaffold")
     if REPO.exists():
@@ -467,10 +392,13 @@ def make_repo(results: dict) -> None:
     git("config", "user.email", "cao-validation@localhost")
     git("add", "-A")
     git("commit", "-q", "-m", "seed: taskly sample app")
-    rc, out = run([str(KIT / "scripts" / "40-init-project.sh"), str(REPO)], timeout=60)
+    init = CAOKIT + ["init", str(REPO), "--name", PROJECT]
+    for role, (tool, model) in ROSTER.items():
+        init += ["--override", f"{role}={tool}:{model}"]
+    rc, out = run(init, timeout=60, env=CAOKIT_ENV)
     write(EVID / "init-project.txt", out)
     if rc != 0:
-        raise Fatal("40-init-project.sh failed: " + out)
+        raise Fatal("caokit init failed: " + out)
     company = REPO / ".company" / "COMPANY.md"
     txt = company.read_text(encoding="utf-8")
     txt = txt.replace(
@@ -485,6 +413,7 @@ def make_repo(results: dict) -> None:
     company.write_text(txt, encoding="utf-8")
     git("add", "-A")
     git("commit", "-q", "-m", "baseline: .company scaffold for TASK-0001")
+    results["company_baseline"] = company_snapshot()
     rc, head = git("rev-parse", "HEAD")
     results["baseline_commit"] = head.strip()
     log(f"repo ready at {REPO} (baseline {head.strip()[:10]})")
@@ -502,7 +431,7 @@ def existing_session_guard() -> None:
             run(["cao", "shutdown", "--session", SESSION], timeout=120)
             time.sleep(3)
         else:
-            raise Fatal(f"A '{SESSION}' session is already running. Stop it (scripts/90-stop.sh) "
+            raise Fatal(f"A '{SESSION}' session is already running. Stop it (caokit stop) "
                         "or rerun with FORCE_REPLACE=1.")
 
 
@@ -526,10 +455,12 @@ def snapshot_terminal(tid: str, profile: str) -> None:
 
 
 def launch_and_watch(results: dict) -> None:
-    log("PHASE 5/6 launch TASK-0001 via scripts/60-launch-prototype.sh")
+    log("PHASE 5/6 launch TASK-0001 via caokit launch")
     existing_session_guard()
     t0 = time.time()
-    rc, out = run([str(KIT / "scripts" / "60-launch-prototype.sh"), str(REPO)], timeout=900, cwd=str(KIT))
+    launch = CAOKIT + ["launch", str(REPO), "--headless", "--auto-approve",
+                       "--prompt-file", str(REPO / ".company" / "prompts" / "first-run.md")]
+    rc, out = run(launch, timeout=900, cwd=str(KIT), env=CAOKIT_ENV)
     write(EVID / "launch.txt", out)
     results["launch_script_rc"] = rc
     results["launch_script_seconds"] = round(time.time() - t0)
@@ -608,9 +539,10 @@ def launch_and_watch(results: dict) -> None:
         if AUTO_NUDGE and not nudged and stalled_for > STALL_MIN * 60:
             msg = ("Report TASK-0001 status, current workers, missing callbacks, and artifact paths. "
                    "Do not redo completed work. If both worker artifacts exist, continue with the "
-                   "claude_reviewer handoff and the synthesis.")
-            log(f"STALL {round(stalled_for / 60)}min with no progress -> sending ONE documented nudge (80-send.sh)")
-            rc, out = run([str(KIT / "scripts" / "80-send.sh"), msg], timeout=660, cwd=str(KIT))
+                   "inspector handoff and the synthesis.")
+            log(f"STALL {round(stalled_for / 60)}min with no progress -> sending ONE documented nudge (caokit send)")
+            rc, out = run(CAOKIT + ["send", msg, "--repo", str(REPO)], timeout=660,
+                          cwd=str(KIT), env=CAOKIT_ENV)
             write(EVID / "nudge.txt", f"rc={rc}\n{out}")
             nudged = True
             results["nudged_at"] = now()
@@ -657,7 +589,7 @@ def evaluate(results: dict) -> list:
     senders = {m.get("sender_id") for m in inbox if isinstance(m, dict)}
 
     # Git: what changed since baseline?
-    _, porcelain = git("status", "--porcelain", "--untracked-files=all")
+    _, porcelain = git("status", "--porcelain", "--untracked-files=all", "--ignored")
     write(EVID / "git-status.txt", porcelain)
     changed = []
     for line in porcelain.splitlines():
@@ -672,7 +604,10 @@ def evaluate(results: dict) -> list:
     write(EVID / "git-log.txt", log_out)
     outside = [c for c in changed if not c.startswith(".company/")
                and "__pycache__/" not in c and not c.endswith(".pyc")]
-    extra_company = [c for c in changed if c.startswith(".company/") and c not in ALLOWED_WRITES]
+    base = results.get("company_baseline") or {}
+    now_files = company_snapshot()
+    extra_company = [p for p, h in now_files.items()
+                     if p not in ALLOWED_WRITES and base.get(p) != h]
     results["git_changed"] = changed
     results["git_commits_after_run"] = log_out.strip().splitlines()
 
@@ -699,21 +634,21 @@ def evaluate(results: dict) -> list:
 
     checks = []
     cap = seen.get(cid) if cid else None
-    checks.append(("Active CAO session shows a Claude captain",
-                   ok(cap is not None and cap.get("agent_profile") == "startup_captain"
+    checks.append(("Active CAO session shows a Claude General",
+                   ok(cap is not None and cap.get("agent_profile") == PROFILE["general"]
                       and cap.get("provider") == "claude_code"),
                    "conductor {} profile={} provider={}".format(
                        cid, cap and cap.get("agent_profile"), cap and cap.get("provider"))))
-    for profile, prov in (("claude_engineer", "claude_code"), ("agy_researcher", "antigravity_cli")):
+    for profile, prov in ((PROFILE["engineer"], "claude_code"), (PROFILE["scout"], "antigravity_cli")):
         r = one(profile)
-        checks.append((f"Captain launches {profile} with provider {prov}",
+        checks.append((f"General launches {profile} with provider {prov}",
                        ok(r is not None and r.get("provider") == prov and r.get("caller_id") == cid),
                        "terminal {} provider={} caller_id={} (captain={})".format(
                            r and r.get("id"), r and r.get("provider"), r and r.get("caller_id"), cid)))
-    cx, ag = one("claude_engineer"), one("agy_researcher")
+    cx, ag = one(PROFILE["engineer"]), one(PROFILE["scout"])
     cb_eng = bool(cx and cx.get("id") in senders)
     cb_agy = bool(ag and ag.get("id") in senders)
-    checks.append(("Both workers return callbacks to the captain (CAO inbox)",
+    checks.append(("Both workers return callbacks to the General (CAO inbox)",
                    ok(cb_eng and cb_agy),
                    f"engineer callback={cb_eng} agy callback={cb_agy} ({len(inbox)} inbox msgs)"))
     wa = art_info.get("engineer"), art_info.get("agy")
@@ -724,13 +659,14 @@ def evaluate(results: dict) -> list:
                    ok(not outside and len(results["git_commits_after_run"]) == 2),
                    "outside .company: {} ; commits now: {}".format(
                        outside or "none", len(results["git_commits_after_run"]))))
-    rv = one("claude_reviewer")
-    checks.append(("claude_reviewer (claude_code) produces the review artifact",
-                   ok(bool(art_info.get("review")) and rv is not None and rv.get("provider") == "claude_code"),
+    rv = one(PROFILE["inspector"])
+    checks.append(("inspector (antigravity_cli) produces the review artifact",
+                   ok(bool(art_info.get("review")) and rv is not None
+                      and rv.get("provider") == "antigravity_cli"),
                    "reviewer terminal {} provider={} caller_id={} review={}B".format(
                        rv and rv.get("id"), rv and rv.get("provider"), rv and rv.get("caller_id"),
                        art_info.get("review") and art_info["review"]["bytes"])))
-    checks.append(("Captain produces the synthesis artifact",
+    checks.append(("General produces the synthesis artifact",
                    ok(bool(art_info.get("synthesis") and art_info["synthesis"]["bytes"] > 0)),
                    str(art_info.get("synthesis") and art_info["synthesis"]["bytes"]) + "B"))
     unc = ""
@@ -744,7 +680,7 @@ def evaluate(results: dict) -> list:
     checks.append(("[extra] .company writes stay inside TASK-0001 allowed list",
                    "PASS" if not extra_company else "WARN",
                    ", ".join(extra_company) or "only allowed paths"))
-    dup = {p: len(v) for p, v in by_profile.items() if p != "startup_captain" and len(v) > 1}
+    dup = {p: len(v) for p, v in by_profile.items() if p != PROFILE["general"] and len(v) > 1}
     checks.append(("[extra] No duplicate workers spawned", "PASS" if not dup else "WARN", str(dup or "none")))
     unexpected = [p for p in by_profile if p not in EXPECTED]
     checks.append(("[extra] No unexpected agent profiles spawned",
@@ -776,9 +712,9 @@ def report(results: dict, checks: list, fatal: str = "") -> None:
          f"- Run: `{RUN_DIR}`", "- Started: {}  Elapsed: {} min".format(TS, results.get("elapsed_minutes")),
          "- CAO API: {}  backend: {}".format(API, results.get("terminal_backend")),
          "- Versions: {}".format(json.dumps(results.get("versions", {}))),
-         "- agy model: `{}` (listed by `agy models`: {})".format(
+         "- scout model: `{}` (listed by `agy models`: {})".format(
              results.get("agy_model_configured"), results.get("agy_model_listed")),
-         "- agy_reviewer model: `{}`".format(results.get("agy_review_model_configured")), ""]
+         "- inspector model: `{}`".format(results.get("agy_review_model_configured")), ""]
     if fatal:
         L += ["## Aborted", "", "```", fatal, "```", ""]
     if checks:
@@ -838,8 +774,8 @@ def main() -> int:
     try:
         preflight(results)
         ensure_server(results)
-        ensure_profiles(results)
         make_repo(results)
+        install_profiles(results)
         launch_and_watch(results)
         checks = evaluate(results)
     except Fatal as e:
