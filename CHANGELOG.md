@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased: caokit v1 slice
+## v0.2.0 (2026-11-02): caokit replaces the bash kit
 
 New Python CLI `caokit` (Python >= 3.11, no runtime dependencies, `uv tool install`), replacing hardcoded profile names with roles.
 
