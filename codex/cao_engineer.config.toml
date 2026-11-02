@@ -1,7 +1,0 @@
-# Loaded when CAO passes: codex --profile cao_engineer
-# Non-interactive because CAO cannot answer a boxed approval prompt.
-approval_policy = "never"
-sandbox_mode = "workspace-write"
-
-[sandbox_workspace_write]
-network_access = false

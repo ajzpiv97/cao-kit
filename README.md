@@ -1,10 +1,10 @@
-# CAO agent company kit (v0.1.0)
+# CAO agent company kit
 
-A small, local "company" of coding agents. You talk to **one** commanding agent (today
-named the *captain*, Claude Code). It drafts task files, waits for your approval, then
-delegates to specialist coding-agent CLIs through
-[CAO](https://github.com/awslabs/cli-agent-orchestrator) (`cli-agent-orchestrator`),
-using subscriptions you already pay for.
+A small, local "company" of coding agents. You talk to **one** commanding agent, the *General*
+(Claude Code by default). It drafts task files, waits for your approval, then delegates to
+specialist coding-agent CLIs through [CAO](https://github.com/awslabs/cli-agent-orchestrator)
+(`cli-agent-orchestrator`), using subscriptions you already pay for. Everything is driven by the
+`caokit` command line.
 
 The kit is generic: it assumes no particular project, language or stack. A project brings its
 own validation commands (test/CI command) and its own rules.
@@ -13,43 +13,92 @@ own validation commands (test/CI command) and its own rules.
 - **CAO:** exactly **2.5.4**, installed with `uv tool`.
 - **Status:** validated end to end with a Claude + Antigravity roster (see [Validation](#validation)).
 
-## caokit CLI (v1 slice, in development)
+## Install and set up
 
 ```bash
-uv tool install git+https://github.com/<user>/cao-kit      # or: uv tool install --from . caokit
-caokit doctor
+uv tool install --from . caokit        # or: uv tool install git+https://github.com/<user>/cao-kit
+caokit doctor                          # CLIs, auth, CAO version, single CAO install, server, roster
 caokit company create --general claude:sonnet --engineer claude:opus \
     --scout antigravity:gemini-3.8-flash-medium --inspector antigravity:gemini-4-argon-high
-caokit install              # add --replace-legacy / --remove-legacy if CAO or old profiles object
-caokit init /path/to/repo   # scaffolds .company/, ROSTER.md and merges .gitignore
+caokit install                         # render and install the profiles into CAO
+caokit init /path/to/repo              # scaffold .company/, ROSTER.md, merge .gitignore
+caokit server                          # terminal A: start cao-server (leave running)
+caokit launch /path/to/repo            # terminal B: start the General in this project
 ```
 
 Config lives in `~/.config/caokit/caokit.toml` (`$CAOKIT_HOME` or `--config` to override). Roles are
 tool-agnostic; concrete CAO profiles are named `<role>-<tool>` (CAO allows only `[A-Za-z0-9_-]`).
-The older scripts below still work for the v0 roster.
+
+### Prerequisites
+
+`git`, `tmux`, `uv`, `python3` (3.11+), `cao`, `cao-server`, `cao-mcp-server`, `claude`, `agy`.
+
+```bash
+brew install tmux uv
+uv tool install 'cli-agent-orchestrator==2.5.4'
+curl -fsSL https://claude.ai/install.sh | bash
+curl -fsSL https://antigravity.google/cli/install.sh | bash
+caokit doctor
+```
+
+Change the CAO version only with `uv tool install --force 'cli-agent-orchestrator==X'`, never
+`uv tool upgrade` or `cao update`. Log in to `claude` and `agy` **directly, outside CAO**, once
+(send one harmless prompt each), so no login screen appears inside an orchestrated terminal.
+`agy models` lists the exact model IDs.
+
+## Command reference
+
+| Command | Purpose |
+|---|---|
+| `caokit doctor` | Check CLIs, auth, CAO version, a single CAO install (uv tool only), the server and its web UI, and the roster |
+| `caokit company create` | Write `caokit.toml` (role to tool and model), with every guardrail checked |
+| `caokit install [--project REPO]` | Render, validate, install and byte-verify profiles; `--replace-legacy` / `--remove-legacy` for old copies |
+| `caokit init REPO [--name P] [--override ROLE=TOOL[:MODEL]]` | Scaffold `.company/` in a git repo; `--name` namespaces its profiles |
+| `caokit server` | Run `cao-server` (tmux backend) in the foreground |
+| `caokit launch [REPO]` | Start the project's General; `--prompt-file F`, `--headless`, `--auto-approve` |
+| `caokit status [REPO]` / `send MESSAGE` / `stop [REPO]` | Show sessions and workers, message the General, shut the session down |
+| `caokit tasks [list] [REPO]` | Open tasks and what blocks them (`--all` includes finished ones) |
+| `caokit tasks archive [REPO]` | Move `ACCEPTED`, `CANCELLED` and `FAILED` tasks to `.company/tasks/archive/` |
+| `caokit tasks policy --keep-archived-days N` | Set how long a project keeps archived tasks |
+| `caokit tasks prune [REPO] [--days N] [--yes]` | Delete archived tasks older than the policy; a dry run unless `--yes` |
+| `caokit tasks schedule [REPO] [--install\|--remove] [--at HH:MM]` | Print, add or remove the daily cron entry that archives and prunes |
+| `caokit reset [--yes]` | Back up CAO's state, reinstall CAO 2.5.4 and the profiles; a dry run unless `--yes` |
+
+`scripts/95-validate-e2e.sh` runs the live proof harness and `scripts/token_usage.py` reports Claude
+token use per session. They are development tools for this repo, not part of the installed CLI.
 
 ### Per-project setups
 
-CAO's profile store is machine-global (profiles are not looked up in a project directory), so two projects
-sharing `engineer-claude` would overwrite each other's model. Give a project its own namespaced profiles:
+CAO's profile store is machine-global (profiles are not looked up in a project directory), so two
+projects sharing `engineer-claude` would overwrite each other's model. Give a project its own
+namespaced profiles:
 
 ```bash
 caokit init ~/proj-a --name proja                          # same roster as the user-level config
 caokit init ~/proj-b --name projb --override engineer=:sonnet --override scout=claude:haiku
 caokit install --project ~/proj-a                          # installs proja_general-claude, proja_engineer-claude, ...
 caokit install --project ~/proj-b
-cao launch --agents proja_general-claude --session-name proja --working-directory ~/proj-a
+caokit launch ~/proj-a                                     # session cao-proja
 ```
 
 - Two layers: the user-level `caokit.toml`, then the project's `.company/caokit.toml` (git-ignored) with a
-  `[project] name`, optional `[policy]`, and per-role `tool`/`model` overrides.
+  `[project] name`, optional `[policy]`, `[tasks]`, and per-role `tool`/`model` overrides.
 - Override forms: `role=tool`, `role=tool:model`, `role=:model` (keep the tool). Changing a role's tool
   without a model drops the user-level model (a model ID from one tool means nothing to another).
 - Names are `<project>_<role>-<tool>`; the project is 1-24 lowercase letters, digits or `-`.
-- All guardrails (cross-provider inspection, soft-engineer opt-in, model validation) re-run on the merged config.
-- Without `--name`, `init` keeps today's behaviour: shared `<role>-<tool>` profiles.
-- Each project is its own CAO session (one `cao-server` serves them all); give each a distinct `--session-name`.
+- All guardrails (cross-provider inspection, soft-tool opt-ins, model validation) re-run on the merged config.
+- Without `--name`, `init` uses shared `<role>-<tool>` profiles, and the session is named after the directory.
+- Each project is its own CAO session; one `cao-server` serves them all.
 - Not yet built: removing a project's profiles from CAO. Delete `<project>_*` from the profile store by hand.
+
+### Policy
+
+| Setting | Where | Effect |
+|---|---|---|
+| `allow_soft_engineer` | `[policy]` / `--allow-soft-engineer` | Lets a soft-enforcement tool (Antigravity) be the engineer |
+| `allow_soft_general` | `[policy]` / `--allow-soft-general` | Lets a soft-enforcement tool be the General. CAO cannot deny its tools, so it could write anywhere and run commands. Prompt rules are all that hold it back |
+| `allow_single_provider` | `[policy]` / `--allow-single-provider` | Downgrades the cross-provider inspection rule to a warning |
+| `keep_archived_days` | project `[tasks]` | `tasks prune` deletes archived tasks older than this; unset keeps them forever |
 
 ### Developing caokit
 
@@ -58,185 +107,121 @@ export PYTHONPATH=src
 uvx ruff check src tests && uvx ruff format --check src tests   # lint + format (Google docstrings enforced)
 uvx mypy                                                          # strict types for src, lenient for tests
 python3 -B -m unittest discover -s tests -t .                    # unit tests (a real-cao test runs if `cao` is installed)
-uvx --with coverage coverage run --source=src -m unittest discover -s tests -t . && uvx --with coverage coverage report -m
 ```
 
-Ruff lints and formats but does not type-check, so mypy covers types. Both target Python 3.11, the minimum
-(`requires-python = ">=3.11"`); caokit has no runtime dependencies. `uv tool install` fetches a suitable
-interpreter, so the system Python does not matter.
+Both target Python 3.11, the minimum (`requires-python = ">=3.11"`); caokit has no runtime
+dependencies. `uv tool install` fetches a suitable interpreter, so the system Python does not matter.
 
-## Roster
+## Roles
 
-| Profile | Provider | Job | Tool limits |
+| Role | Default tool | Job | Tool limits |
 |---|---|---|---|
-| `startup_captain` | `claude_code`, `permissionMode: auto` | Single entry point: task intake, dispatch, acceptance procedure, synthesis | Native: no Bash, Agent/Task, Monitor, web. Read/list/write + `cao-mcp-server` |
-| `claude_engineer` | `claude_code`, auto | Implements; runs **only** the task's authorised validation commands | Web blocked. `execute_bash` also unlocks Claude's Agent/Task tools, so "no subagents" is instruction-only |
-| `agy_researcher` | `antigravity_cli` (default render: `gemini-3.8-flash-medium`) | Research | Advisory only |
-| `agy_reviewer` | `antigravity_cli` (default render: `gemini-4-argon-high`) | Reviews Claude-authored code; re-runs the authorised commands | Advisory only |
-| `claude_reviewer` | `claude_code`, auto | Reviews research and non-source artifacts | Native: no shell, no subagents, no web |
+| `general` | Claude Code, `permissionMode: auto` | Single entry point: task intake, dispatch, acceptance procedure, synthesis | Native: no Bash, Agent/Task, Monitor, web. Read, list and write plus `cao-mcp-server`. Keep `fs_write` in the profile: CAO's validator warns that it is "not recognised" but that is a gap in its own vocabulary check, and removing it would block the General's `.company/` writes |
+| `engineer` | Claude Code | Implements; runs **only** the task's authorised validation commands | Web blocked. `execute_bash` also unlocks Claude's Agent/Task tools, so "no subagents" is instruction-only |
+| `scout` | Antigravity (`gemini-3.8-flash-medium`) | Research; does not build | Advisory only |
+| `inspector` | Antigravity (`gemini-4-argon-high`) | Independent review; re-runs the authorised commands | Advisory only |
 
-Why this split: **Claude implements, Antigravity reviews Claude's code.** Claude's tool limits
-are enforced natively by CAO. Antigravity's are **advisory**: CAO launches it with
-`--dangerously-skip-permissions`, so review must come from a different provider than the author.
-The Claude profiles do not set `model:`; they inherit your Claude Code default.
+Why this split: **Claude implements, Antigravity inspects Claude's code.** Claude's tool limits are
+enforced natively by CAO. Antigravity's are **advisory**: CAO launches it with
+`--dangerously-skip-permissions`, so review must come from a different tool and model vendor than
+the author. Any role can be bound to any active tool (`caokit company create`), and a soft-enforcement
+tool as `engineer` or `general` needs an explicit opt-in because nothing then stops it writing
+anywhere. Codex is parked (see [Parked: Codex](#parked-codex)).
 
-Codex was dropped from the roster (see [Parked: Codex](#parked-codex)).
+## Interacting with the General
 
-## Prerequisites
-
-`git`, `tmux`, `uv`, `python3` (3.9+), `cao`, `cao-server`, `cao-mcp-server`, `claude`, `agy`.
-
-```bash
-brew install tmux uv
-uv tool install 'cli-agent-orchestrator==2.5.4'
-curl -fsSL https://claude.ai/install.sh | bash
-curl -fsSL https://antigravity.google/cli/install.sh | bash
-./scripts/00-doctor.sh          # checks commands and versions
-./scripts/97-cao-install-audit.sh   # proves there is exactly one CAO install
-```
-
-Change the CAO version only with `uv tool install --force 'cli-agent-orchestrator==X'`, never
-`uv tool upgrade` or `cao update`. Log in to `claude` and `agy` **directly, outside CAO**, once
-(send one harmless prompt each), so no login screen appears inside an orchestrated terminal.
-`agy models` lists the exact model IDs.
-
-## Quickstart
-
-```bash
-export KIT_DIR="$HOME/path/to/cao-agent-company-prototype"
-export PROJECT_DIR="$HOME/path/to/your/git-repository"
-cd "$KIT_DIR"
-
-# 1. Render profiles (model IDs must match `agy models` exactly)
-AGY_MODEL='gemini-3.8-flash-medium' AGY_REVIEW_MODEL='gemini-4-argon-high' \
-  ./scripts/10-render-profiles.sh
-
-# 2. Install them into CAO (validates, then installs the 5-profile roster)
-./scripts/30-install-cao-profiles.sh
-
-# 3. Scaffold .company/ into a git repository (does not touch application source)
-./scripts/40-init-project.sh "$PROJECT_DIR"
-#    then edit $PROJECT_DIR/.company/COMPANY.md (mission, repository description)
-
-# 4. Start CAO (terminal A, leave running)
-./scripts/50-start-server.sh
-
-# 5. Launch (terminal B)
-cd "$PROJECT_DIR" && cao launch --agents startup_captain --session-name agent-company
-```
-
-`AGY_MODEL` is required by the render step; `AGY_REVIEW_MODEL` defaults to `AGY_MODEL`.
-Rendered output goes to `generated-profiles/` (do not hand-edit; edit `profiles/`).
-
-For a hands-off smoke test instead of step 5, run
-`./scripts/60-launch-prototype.sh "$PROJECT_DIR"` (headless TASK-0001; see
-`workspace/.company/prompts/first-run.md`). Expect artifacts under `.company/`
-(`artifacts/`, `research/`, `reviews/`, `decisions/`) and no application-source changes.
-
-## Interacting with the captain
-
-- `cao launch` **without** `--headless` attaches you to the captain's Claude Code inside tmux.
-  This is the interactive chain-of-command mode. Workers are other tmux windows:
-  `Ctrl-b w` lists them, `Ctrl-b d` detaches (session keeps running).
+- `caokit launch` **without** `--headless` attaches you to the General's Claude Code inside tmux.
+  Workers are other tmux windows: `Ctrl-b w` lists them, `Ctrl-b d` detaches (the session keeps running).
 - Web UI with live terminals: `http://127.0.0.1:9889/` (root path only). `cao tui` also exists.
-- **Don't type into the captain while it is mid-turn.** Worker reports queue and are delivered
-  when it is idle. For check-ins use
-  `./scripts/80-send.sh "<msg>"` or `cao session send cao-agent-company "<msg>" --timeout 600`.
-- Session names get a `cao-` prefix (`agent-company` becomes `cao-agent-company`).
+- **Don't type into the General while it is mid-turn.** Worker reports queue and are delivered when it
+  is idle. For check-ins use `caokit send "<msg>"`.
+- Session names get a `cao-` prefix (project `proja` becomes `cao-proja`).
 - Never use `cao launch --yolo` and never `allowedTools: ["*"]`: both bypass restrictions.
 
 ## Task workflow
 
-1. **Intake.** You state the goal. The captain writes
-   `.company/tasks/TASK-NNNN-<slug>.md` from the template with `State: PROPOSED`. Acceptance
-   checks are marked "DRAFT – human must confirm", with open questions. The captain then **stops**.
-2. **Approval.** Only your explicit "approved" moves it to `APPROVED`, logged in `DECISIONS.md`.
-   You own the acceptance checks and the allowed-path review.
-3. **Authorised validation commands.** The engineer and reviewer run exactly the commands the
-   task lists and nothing else (no `rm`/cleanup, installs, network, or state-changing git). Both
-   write a **Commands run** section with real output. The reviewer re-runs the commands itself and
-   never reuses the author's output. Prefer no-artifact commands (`python3 -B -m unittest …`).
-4. **Acceptance procedure.** The captain diffs every reported command against the allowlist and
-   flags extras as a **contract breach**; if the reviewer's output is missing or identical to the
-   author's, it asks the reviewer to confirm it ran the commands itself.
-5. **Accept.** Only your "accept" moves a task to `ACCEPTED`.
+1. **Intake.** You state the goal. The General writes `.company/tasks/TASK-NNNN-<slug>.md` from the
+   template. A clear task that needs at most two agents and meets no plan-path trigger takes the
+   **fast path**: the General records `APPROVED` under the pre-authorised rule and dispatches
+   without stopping, and you review the output afterwards. Anything else takes the **plan path**:
+   `State: PROPOSED`, a Team plan with a per-agent cost estimate, draft acceptance checks marked
+   "human must confirm", then the General **stops** for your approval. Plan-path triggers are
+   auth or secrets, data deletion or migration, new dependencies, anything external, ambiguity, or
+   more than two agents. In Claude Code's plan mode approval is always forced.
+2. **Approval.** Only your explicit approval moves a plan-path task to `APPROVED`, logged in
+   `DECISIONS.md`. You own the acceptance checks and the allowed-path review.
+3. **Clarification.** Workers ask the General with `send_message`; the General answers from the task
+   file and repository if it can, and otherwise asks you. It does not guess.
+4. **Authorised validation commands.** The engineer and inspector run exactly the commands the task
+   lists and nothing else (no `rm`/cleanup, installs, network, or state-changing git). Both write a
+   **Commands run** section with real output. The inspector re-runs the commands itself.
+5. **Acceptance procedure.** The General diffs every reported command against the allowlist and flags
+   extras as a **contract breach**. It never accepts silently.
+6. **Accept.** Only your "accept" moves a task to `ACCEPTED`. Then run `caokit tasks archive`.
 
-Task files are the audit trail: archive them, don't delete them. Contracts live in `contracts/`
-(copied into `.company/contracts/`). In projects, gitignore all of `.company/` except `contracts/`.
+Task files are the audit trail. Contracts live in `.company/contracts/` and are tracked by git; the
+rest of `.company/` is git-ignored.
 
-> The acceptance/command-allowlist rules (steps 3–4) were added 2026-11-01 and are **not yet
-> proven live**; the earlier interactive run showed the problems they address.
+### Keeping and pruning finished tasks
+
+`caokit tasks archive` moves finished tasks out of the active folder and stamps the archive date.
+Archived tasks are kept until the project's policy says otherwise:
+
+```bash
+caokit tasks policy ~/proj-a --keep-archived-days 90     # per project, stored in .company/caokit.toml
+caokit tasks prune ~/proj-a                              # dry run: lists archived tasks older than 90 days
+caokit tasks prune ~/proj-a --yes                        # deletes them
+caokit tasks schedule ~/proj-a                           # prints the daily cron line
+caokit tasks schedule ~/proj-a --install --at 03:17      # adds it to your crontab (only its own line)
+```
+
+Scheduling uses cron. `--install` refuses until a retention policy exists, replaces only the line
+for that project, and `--remove` takes it out again. cron runs with a minimal environment, so the line
+uses the absolute path to `caokit`. On macOS cron may need Full Disk Access to read your project folder.
 
 ## Validation
 
-`./scripts/95-validate-e2e.sh` is the proof harness. It builds a throwaway repo (`taskly`
-sample app) under `validation/`, preflights, starts the server, does a full-text profile drift
-check (auto-reinstalling if needed), launches TASK-0001, polls the CAO API, collects evidence
-and writes `evidence/ACCEPTANCE.md` with a PASS/FAIL verdict. Knobs:
+`scripts/95-validate-e2e.sh` is the proof harness. It builds a throwaway repo (`taskly` sample app)
+under `validation/`, runs `caokit init --name e2e` and `caokit install --project`, launches TASK-0001
+with `caokit launch`, polls the CAO API, collects evidence and writes `evidence/ACCEPTANCE.md` with a
+PASS/FAIL verdict and `evidence/token-usage.md`. Knobs:
 `TIMEOUT_MIN=60 POLL_SEC=15 AUTO_NUDGE=1 STALL_MIN=10 KEEP_SESSION=0 FORCE_REPLACE=0 SKIP_AGY_MODELS=0`.
-Stdlib only, Python 3.9+. `validation/` is local run evidence and is not committed.
+It needs Python 3.11+. `validation/` is local run evidence and is not committed.
 
-## Scripts
-
-| Script | Purpose |
-|---|---|
-| `00-doctor.sh` | Required commands and versions |
-| `05-reset-cao.sh` | Clean reinstall: stop CAO, back up `~/.aws/cli-agent-orchestrator` to `~/cao-reset-backup-<ts>/`, reinstall CAO 2.5.4 (`CAO_VERSION=` overrides), install profiles |
-| `10-render-profiles.sh` | Render `profiles/` into `generated-profiles/` (`AGY_MODEL`, `AGY_REVIEW_MODEL`) |
-| `20-install-codex-profiles.sh` | Parked (Codex) |
-| `30-install-cao-profiles.sh` | Validate and install the roster; fails on CAO's silent `Error:`; `REPLACE_LEGACY=1` replaces stale copies |
-| `40-init-project.sh <repo>` | Copy `workspace/.company` into a git repo |
-| `50-start-server.sh` | `cao-server --terminal tmux` |
-| `60-launch-prototype.sh <repo>` | Headless TASK-0001 smoke test |
-| `70-status.sh` / `80-send.sh "<msg>"` / `90-stop.sh` | Status / message the captain / stop the session |
-| `95-validate-e2e.sh` | End-to-end proof harness (`validate_e2e.py`) |
-| `96-ui-check.sh` | Diagnose the web UI |
-| `97-cao-install-audit.sh` | Prove exactly one CAO install (`FIX=1` removes pip/pipx/brew copies) |
-
-All scripts are macOS bash 3.2-safe (e.g. no `case` inside `$( … )`, no associative arrays).
+Last run on the `caokit` path: PASS with 13 checks passing and 1 manual (read the synthesis). About
+122k fresh Claude tokens (input, output and cache writes), plus about 1.0M cache reads. Antigravity
+leaves no token data, so its share is not counted.
 
 ## Safety model
 
-- Claude profiles: CAO deny-lists (native) plus `permissionMode: auto`.
+- Claude roles: CAO deny-lists (native) plus `permissionMode: auto`.
 - Antigravity: restrictions are **advisory**; treat its profile as guidance, not a boundary.
-- No path-level enforcement: any agent with write access can write anywhere in the repo.
-  Use **one git worktree per writing task** before using the kit on a real project, and inspect
-  `git diff` afterwards.
-- No profile may deploy, merge, push, contact third parties, use production credentials, change
-  billing, or run destructive git. The human commits.
-- Human approval is required for source-changing tasks, merges, pushes, deployments, secrets,
+- No path-level enforcement: any agent with write access can write anywhere in the repo. Use **one git
+  worktree per writing task** before using the kit on a real project, and inspect `git diff` afterwards.
+- No role may deploy, merge, push, contact third parties, use production credentials, change billing,
+  or run destructive git. The human commits.
+- Human approval is required for plan-path tasks, acceptance, merges, pushes, deployments, secrets,
   dependency changes and destructive actions.
 - The kit holds no credentials by design.
 
 ## Parked: Codex
 
 Codex was removed after every CAO failure turned out to be Codex-specific (MCP approval denied,
-inherited `xhigh` reasoning, config drift). The profiles are kept in `profiles/disabled-codex/`
-and the sandbox profile files in `codex/`; `scripts/20-install-codex-profiles.sh` installs them.
-If Codex returns, the `send_message` callback needs:
+inherited `xhigh` reasoning, config drift). Its adapter is kept as metadata only and cannot be
+selected. If Codex returns, the `send_message` callback needs:
 
 ```yaml
 codexConfig:
   mcp_servers.cao-mcp-server.tools.send_message.approval_mode: "approve"
 ```
 
-and an explicit `model_reasoning_effort`. Codex 0.134+ reads `~/.codex/NAME.config.toml`
-files (see `codex/LEGACY-CODEX-PROFILES.md` for older versions).
+and an explicit `model_reasoning_effort`. Codex 0.134+ reads `~/.codex/NAME.config.toml` files.
+The old Codex profile files are in git history.
 
-## Planned (not implemented)
+## Planned
 
-These are decided but **not part of v0.1.0**; nothing in the current profiles or scripts
-implements them.
-
-- **v1: chain-of-command rename and role × tool design.** "Captain" becomes **General**;
-  profiles are split into tool-agnostic roles (`general`, `engineer`, `scout`, `inspector`) plus
-  tool adapters (claude, antigravity, codex…), bound per project by a roster
-  (`.company/ROSTER.md`). Guardrails: an engineer's work must be inspected by a different tool,
-  and soft-enforcement tools may not be engineers without an explicit opt-in.
-- **v1: `caokit` Python CLI** (`uv tool install git+…`) replacing the bash scripts and the
-  `AGY_MODEL` env vars with a `caokit.toml` config; `doctor`, `company create`, `install`,
-  `init`, `validate`, `close`.
-- Evaluate CAO's `use_worktree` for one worktree per task.
+- Removing a project's profiles from CAO (`caokit uninstall`).
+- CAO's `use_worktree` for one worktree per task.
 
 ## More
 

@@ -1,4 +1,4 @@
 # Quick start
 
-The quickstart now lives in [`README.md`](README.md#quickstart) (prerequisites, render, install,
-init, launch). This file is kept only as a pointer.
+The quickstart lives in [`README.md`](README.md#install-and-set-up): `caokit doctor`, `company create`,
+`install`, `init`, `server`, `launch`.

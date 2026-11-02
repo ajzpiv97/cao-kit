@@ -3,12 +3,26 @@
 ## Unreleased: caokit v1 slice
 
 New Python CLI `caokit` (Python >= 3.11, no runtime dependencies, `uv tool install`), replacing hardcoded profile names with roles.
-The bash scripts and the v0.1.0 profiles keep working unchanged.
+
+### Removed (replaced by `caokit`)
+- Legacy profiles (`profiles/`, `generated-profiles/`), the Codex files (`codex/`), and the duplicated scaffold
+  (`workspace/`, `contracts/`, `templates/`). The packaged scaffold in `src/caokit/data/scaffold` is the only copy.
+- Scripts `00`, `05`, `10`, `20`, `30`, `40`, `50`, `60`, `70`, `80`, `90`, `96`, `97`. Use `caokit doctor`, `reset`,
+  `install`, `init`, `server`, `launch`, `status`, `send` and `stop`. `95-validate-e2e.sh` and `token_usage.py` stay as dev tools.
+- `validate_e2e.py` now runs entirely through `caokit` (project `e2e`, pinned roster).
+
+### Added
+- `caokit launch`, `status`, `send`, `stop`, `server`, `reset`.
+- `caokit doctor` also probes the CAO server and its web UI.
+- `allow_soft_general` policy: `general` can be bound to a soft-enforcement tool such as Antigravity with `--allow-soft-general`.
+- `caokit tasks policy|prune|schedule`: per-project retention for archived tasks and an opt-in cron entry.
+- General role: update task state when a review returns; the cost estimate covers the General's own work; condensed command output is handled.
+- `token_usage.py` labels a session by what it writes, not what it reads.
 
 - `caokit doctor`: CLIs, auth, CAO version and single-install audit, roster check.
 - `caokit company create`: writes `caokit.toml` (role -> tool + model). Models are validated against
   the tool (`agy models`); guardrails: cross-provider inspection (tool and model vendor), soft-enforcement
-  engineer needs `--allow-soft-engineer`, `general` is Claude-only, Codex is parked.
+  engineer or General needs `--allow-soft-engineer` / `--allow-soft-general`, Codex is parked.
 - `caokit install`: renders `<role>-<tool>` profiles, validates, installs, treats CAO's `Error:`-with-exit-0
   as failure, verifies the stored copy byte for byte, can move legacy profiles to a backup.
 - `caokit init <repo>`: scaffolds `.company/`, writes `ROSTER.md` (with an unconfirmed suggested validation
@@ -18,7 +32,7 @@ The bash scripts and the v0.1.0 profiles keep working unchanged.
   `<project>_<role>-<tool>` profiles so projects never overwrite each other in CAO's global store.
   Measured on CAO 2.5.4: reinstalling the same name with another model silently replaces it, and a per-call
   model override is ignored for Antigravity profiles that pin a model, hence namespaced profiles.
-- Not yet ported: validate, close, reset, audit, ui-check, up/down/send. No command removes a project's profiles yet.
+- Not yet built: `validate`, `close`. No command removes a project's profiles yet.
 
 ## v0.1.0 — baseline (2026-11-01)
 
