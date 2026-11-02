@@ -4,7 +4,7 @@
 Claude Code writes one transcript per session under
 ``~/.claude/projects/<repo path with non-alphanumerics replaced by '-'>/``.
 Each assistant message carries a ``usage`` block. This script sums them and
-labels each session by the ``.company/`` directory it wrote to, since the
+labels each session by the ``.company/`` paths it writes to, since the
 transcripts do not name the CAO terminal.
 
 Antigravity (agy) sessions are not covered: they leave no token data here.
@@ -21,12 +21,18 @@ import sys
 from pathlib import Path
 
 FIELDS = ("input_tokens", "output_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
-# First match wins, so the captain's decisions/ outranks the artifacts it may also touch.
-ROLE_BY_DIR = (
-    ("/.company/decisions/", "captain"),
+# Only paths a session writes count; reading another role's file says nothing about
+# who the session is. First match wins. The captain owns the task file and the
+# shared logs, a worker owns only its artifact or review.
+ROLE_BY_PATH = (
+    ("/.company/tasks/", "captain"),
+    ("/.company/DECISIONS.md", "captain"),
+    ("/.company/BACKLOG.md", "captain"),
+    ("/.company/TEAM.md", "captain"),
     ("/.company/reviews/", "reviewer"),
     ("/.company/artifacts/", "engineer"),
 )
+WRITE_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
 
 
 def transcript_dir(repo: Path) -> Path:
@@ -36,14 +42,16 @@ def transcript_dir(repo: Path) -> Path:
 
 
 def written_paths(message: dict) -> list[str]:
-    """Return file paths that tool calls in an assistant message write to."""
+    """Return file paths that write tools in an assistant message target."""
     content = message.get("content")
     if not isinstance(content, list):
         return []
     return [
         str(block.get("input", {}).get("file_path", ""))
         for block in content
-        if isinstance(block, dict) and block.get("type") == "tool_use"
+        if isinstance(block, dict)
+        and block.get("type") == "tool_use"
+        and block.get("name") in WRITE_TOOLS
     ]
 
 
@@ -71,7 +79,7 @@ def summarize(path: Path) -> dict:
         seen.add(key)
         for f in FIELDS:
             totals[f] += usage.get(f) or 0
-    role = next((r for d, r in ROLE_BY_DIR if any(d in p for p in written)), "unknown")
+    role = next((r for d, r in ROLE_BY_PATH if any(d in p for p in written)), "unknown")
     return {
         "session": path.stem,
         "role": role,

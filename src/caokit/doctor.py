@@ -138,6 +138,41 @@ def _check_cao(rep: Report, expected: str, runner: Runner, which: Which) -> None
         rep.add("ok", "single cao install")
 
 
+def _check_server(rep: Report, runner: Runner, which: Which) -> None:
+    """Add checks that cao-server answers and serves its web UI.
+
+    A reachable server that returns 404 for ``/`` is usually an old process started from a
+    previous CAO install, which a restart fixes. Not running is only a warning, since the
+    server starts on demand.
+
+    Args:
+        rep: Report to append to.
+        runner: Command runner.
+        which: PATH lookup function.
+    """
+    if not which("curl"):
+        return
+    base = "http://{}:{}".format(
+        os.environ.get("CAO_API_HOST", "127.0.0.1"), os.environ.get("CAO_API_PORT", "9889")
+    )
+    health = _run(runner, ["curl", "-s", "-m", "3", base + "/health"])
+    if not health:
+        rep.add("warn", "cao-server is not running (start it with `caokit server`)")
+        return
+    rep.add("ok", "cao-server is running")
+    code = _run(
+        runner, ["curl", "-s", "-m", "3", "-o", "/dev/null", "-w", "%{http_code}", base + "/"]
+    )
+    if code == "200":
+        rep.add("ok", "cao-server serves its web UI")
+    else:
+        rep.add(
+            "warn",
+            f"cao-server web UI answered {code or 'nothing'} at /: restart the server "
+            "(`caokit stop` your sessions, stop the old cao-server, run `caokit server`)",
+        )
+
+
 def _check_tools(rep: Report, used: set[str], runner: Runner, which: Which) -> None:
     """Add checks for every adapter's CLI: binary, version and auth.
 
@@ -232,6 +267,7 @@ def run_doctor(
         # uv is only needed to install/upgrade; tmux and git are required to run at all.
         level = "ok" if found else ("warn" if binary == "uv" else "fail")
         rep.add(level, f"{binary} {'found' if found else 'not found'}")
+    _check_server(rep, runner, which)
     _check_tools(rep, used, runner, which)
     if cfg:
         _check_roster(rep, cfg, path)

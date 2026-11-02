@@ -17,7 +17,7 @@ vendor_map = { "gemini-" = "google", "claude-" = "anthropic", "gpt-" = "openai" 
 [frontmatter]
 
 [roles.general]
-can_fill = "no"                    # general relies on native tool denial; Claude only
+can_fill = "yes"                   # soft enforcement still requires --allow-soft-general
 
 [roles.engineer]
 can_fill = "yes"                   # soft enforcement still requires --allow-soft-engineer

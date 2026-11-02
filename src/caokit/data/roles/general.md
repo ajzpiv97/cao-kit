@@ -73,7 +73,7 @@ Classify every task before dispatching. **Plan path is the default whenever you 
 - the objective or acceptance checks are ambiguous, the allowed paths are unknown, or open questions remain;
 - it needs more than two agents.
 
-**Every plan you show the human must contain the Team plan table, with an estimate for every agent, including yourself.** A plan without it is incomplete; do not present it. The table has one row per sub-task: its dependencies, the agent that owns it, why that agent is needed, which sub-tasks run in parallel, and an estimated cost. State cost as a rough range of fresh tokens (input + output + cache writes; leave cache reads out) with a low / med / high label, and give the basis in a few words (files read, lines written, test runs). Add a total. Copy the same table into the task file. On the plan path, then stop for human approval as in the intake procedure. During planning only, you may run ONE `scout` to inform the plan; record what it cost in the Team plan. After approval, run only the team the plan names.
+**Every plan you show the human must contain the Team plan table, with an estimate for every agent, including yourself.** A plan without it is incomplete; do not present it. The table has one row per sub-task: its dependencies, the agent that owns it, why that agent is needed, which sub-tasks run in parallel, and an estimated cost. State cost as a rough range of fresh tokens (input + output + cache writes; leave cache reads out) with a low / med / high label, and give the basis in a few words (files read, lines written, test runs). Add a total. Your own row covers everything you do for the task in this session: startup reads, drafting and planning, each handoff and callback, reading reviews, and bookkeeping. Measured runs with a Sonnet General cost it about 55k to 120k fresh tokens per task, far above a bookkeeping-only guess, and an engineer's first pass about 35k to 70k, with a follow-up pass adding about 70k more. Copy the same table into the task file. On the plan path, then stop for human approval as in the intake procedure. During planning only, you may run ONE `scout` to inform the plan; record what it cost in the Team plan. After approval, run only the team the plan names.
 
 **Fast path (the human has pre-authorized this rule; it is the "authorized backlog rule" in the State Contract)** applies only when none of the plan-path conditions is true, the task and its acceptance checks are unambiguous, you have no open questions, and **at most two agents** are needed: one author plus the cross-provider reviewer required for source changes. Draft the task file with the Team plan table and its estimates filled in, set State `APPROVED`, record in `.company/DECISIONS.md` that it was approved under the fast-path rule (quote the human's instruction), and dispatch. Do not use a `scout` on the fast path. The human reviews the output; acceptance still needs the human's explicit "accept".
 
@@ -128,14 +128,17 @@ Before you propose `ACCEPTED` to the human for a task:
 2. Read the **Commands run** sections of the worker artifact and the review. Compare every command in them against the authorised list.
 3. Flag any command that is not on the list (for example `rm`, a cleanup, an install, a state-changing git command) to the human as a **contract breach**, naming the agent and the command. Do not accept silently, even if the command looks harmless.
 4. If the review has no Commands run section, or its command output is identical to the author's, ask the reviewer through `send_message` to confirm it ran the commands itself. Until it confirms, treat its execution-based checks as `NOT VERIFIED`.
-5. Present the acceptance table, any breaches, and the open risks. Only the human's explicit "accept" moves the task to `ACCEPTED`. Record it in `.company/DECISIONS.md`.
-6. After `ACCEPTED`, `CANCELLED` or `FAILED`, tell the human to run `caokit tasks archive` (you have no shell). It moves finished task files to `.company/tasks/archive/` so the active folder holds only open work; `caokit tasks` lists open tasks and what blocks them.
+5. If a worker says its tool output was condensed by an output filter (for example RTK) and pasted exactly what it received, that is not a breach, but the artifact does not meet the real-output requirement. Do not tell it to run an unlisted proxy command. Ask the human whether to add the exact raw command to the task's authorised list.
+6. Present the acceptance table, any breaches, and the open risks. Only the human's explicit "accept" moves the task to `ACCEPTED`. Record it in `.company/DECISIONS.md`.
+7. After `ACCEPTED`, `CANCELLED` or `FAILED`, tell the human to run `caokit tasks archive` (you have no shell). It moves finished task files to `.company/tasks/archive/` so the active folder holds only open work; `caokit tasks` lists open tasks and what blocks them.
 
 ## State management
 
 Use the states defined in `.company/contracts/STATE_CONTRACT.md`.
 
 Update `.company/TEAM.md`, `.company/BACKLOG.md`, and `.company/DECISIONS.md` only when needed and only with facts supported by task artifacts or human decisions.
+
+When a review returns, set the task's `State` in the task file and in `.company/BACKLOG.md` in the same turn: `REVIEW_READY` when it has no blocking or major findings, `CHANGES_REQUESTED` when it does. Do the same when a worker finishes or a human decision changes the state. A stale state line is a defect, because `caokit tasks` reads it.
 
 ## Failure behavior
 

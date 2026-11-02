@@ -1,7 +1,9 @@
 """Read-only view of ``.company/tasks`` plus archiving of finished tasks."""
 
+import os
 import re
 import shutil
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -141,6 +143,38 @@ def archive_finished(repo: Path, delete: bool = False) -> list[Task]:
             p.unlink()
         else:
             (root / "archive").mkdir(exist_ok=True)
-            shutil.move(str(p), root / "archive" / p.name)
+            dest = root / "archive" / p.name
+            shutil.move(str(p), dest)
+            os.utime(dest)  # a move keeps the old mtime; the archive date is when it was archived
         moved.append(task)
     return moved
+
+
+def prune_archive(
+    repo: Path, days: int, apply: bool = False, now: float | None = None
+) -> list[Path]:
+    """List archived task files older than ``days``, deleting them when ``apply`` is true.
+
+    Age is measured from when the file was archived (its modification time).
+
+    Args:
+        repo: Project root.
+        days: Keep files archived within this many days.
+        apply: Delete the old files instead of only listing them.
+        now: Current time as a Unix timestamp (injectable for tests).
+
+    Returns:
+        The old archived files, oldest first. Empty when there is no archive folder.
+    """
+    arch = tasks_dir(repo) / "archive"
+    if not arch.is_dir():
+        return []
+    cutoff = (time.time() if now is None else now) - days * 86400
+    old = sorted(
+        (p for p in arch.glob("TASK-*.md") if p.stat().st_mtime < cutoff),
+        key=lambda p: p.stat().st_mtime,
+    )
+    if apply:
+        for p in old:
+            p.unlink()
+    return old

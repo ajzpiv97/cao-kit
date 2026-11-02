@@ -35,6 +35,7 @@ def create_company(
     bindings: dict[str, Binding],
     allow_soft_engineer: bool = False,
     allow_single_provider: bool = False,
+    allow_soft_general: bool = False,
     runner: Runner = default_runner,
     out: Callable[[str], None] = print,
 ) -> Config:
@@ -48,6 +49,7 @@ def create_company(
         bindings: Role name to binding; every role in ``ROLES`` must be present.
         allow_soft_engineer: Accept a soft-enforcement tool as engineer.
         allow_single_provider: Downgrade the cross-provider rule to a warning.
+        allow_soft_general: Accept a soft-enforcement tool as the General.
         runner: Command runner used to validate models (injectable for tests).
         out: Sink for warnings and recommendation notes.
 
@@ -62,6 +64,7 @@ def create_company(
         roles=dict(bindings),
         allow_soft_engineer=allow_soft_engineer,
         allow_single_provider=allow_single_provider,
+        allow_soft_general=allow_soft_general,
     )
     errors: list[str] = [f"role {role} has no tool" for role in ROLES if role not in cfg.roles]
     if errors:

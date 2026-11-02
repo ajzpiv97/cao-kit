@@ -1,6 +1,7 @@
 import copy
 import os
 import tempfile
+import tomllib
 import unittest
 from collections.abc import Sequence
 from pathlib import Path
@@ -102,6 +103,23 @@ class RosterTests(unittest.TestCase):
         r = check_roster(c)
         self.assertEqual(r.errors, [])
         self.assertTrue(any("advisory" in w for w in r.warnings))
+
+    def test_soft_general_requires_flag(self):
+        c = cfg(general__tool="antigravity", general__model="gemini-4-argon-high")
+        self.assertTrue(any("allow-soft-general" in e for e in check_roster(c).errors))
+        c.allow_soft_general = True
+        r = check_roster(c)
+        self.assertEqual(r.errors, [])
+        self.assertTrue(any(w.startswith("general uses") for w in r.warnings))
+
+    def test_parked_tool_still_cannot_be_general(self):
+        c = cfg(general__tool="codex", general__model=None)
+        self.assertTrue(any("parked" in e for e in check_roster(c).errors))
+
+    def test_soft_general_policy_round_trips(self):
+        c = cfg()
+        c.allow_soft_general = True
+        self.assertTrue(parse_config(tomllib.loads(dump_config(c))).allow_soft_general)
 
     def test_same_tool_inspector_errors(self):
         c = cfg(inspector__tool="claude", inspector__model="sonnet")

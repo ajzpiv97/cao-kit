@@ -25,13 +25,13 @@ from pathlib import Path
 from typing import Any
 
 from .adapters import ROLES, AdapterError, Runner, default_runner, load_adapter, validate_model
-from .config import SCHEMA, Binding, Config, ConfigError, _only
+from .config import POLICY_KEYS, SCHEMA, Binding, Config, ConfigError, _only
 from .render import validate_project_name
 from .roster import check_roster
 
 # Lives under .company/, which the managed .gitignore block ignores (except contracts/).
 PROJECT_FILE = Path(".company") / "caokit.toml"
-_POLICY_KEYS = ("allow_soft_engineer", "allow_single_provider")
+_POLICY_KEYS = POLICY_KEYS
 
 
 @dataclass
@@ -42,11 +42,14 @@ class Overrides:
         name: Project slug used to namespace profile names.
         roles: For each overridden role, only the keys given: ``tool`` and/or ``model``.
         policy: Policy switches the project sets explicitly.
+        keep_archived_days: Days an archived task file is kept before ``tasks prune``
+            deletes it; None keeps archived tasks forever.
     """
 
     name: str
     roles: dict[str, dict[str, str]] = field(default_factory=dict)
     policy: dict[str, bool] = field(default_factory=dict)
+    keep_archived_days: int | None = None
 
 
 def parse_overrides(d: dict[str, Any]) -> Overrides:
@@ -62,7 +65,7 @@ def parse_overrides(d: dict[str, Any]) -> Overrides:
         ConfigError: Wrong schema, missing/invalid project name, unknown key or role,
             or a value of the wrong type.
     """
-    _only(d, {"schema", "project", "policy", "roles"}, "")
+    _only(d, {"schema", "project", "policy", "roles", "tasks"}, "")
     if d.get("schema") != SCHEMA:
         raise ConfigError(f"schema must be {SCHEMA} (got {d.get('schema')!r})")
     proj = d.get("project")
@@ -87,7 +90,12 @@ def parse_overrides(d: dict[str, Any]) -> Overrides:
             if not isinstance(v, str) or not v:
                 raise ConfigError(f"roles.{role}.{k} must be a non-empty string")
         roles[role] = dict(o)
-    return Overrides(name=name, roles=roles, policy=dict(pol))
+    tasks = d.get("tasks", {})
+    _only(tasks, {"keep_archived_days"}, "tasks")
+    days = tasks.get("keep_archived_days")
+    if days is not None and (isinstance(days, bool) or not isinstance(days, int) or days < 1):
+        raise ConfigError("tasks.keep_archived_days must be a whole number of days, at least 1")
+    return Overrides(name=name, roles=roles, policy=dict(pol), keep_archived_days=days)
 
 
 def load_overrides(repo: Path) -> Overrides:
@@ -129,6 +137,8 @@ def dump_overrides(ov: Overrides) -> str:
     for role in ROLES:  # fixed order keeps the file stable across runs
         if role in ov.roles:
             out += ["", f"[roles.{role}]"] + [f"{k} = {q(v)}" for k, v in ov.roles[role].items()]
+    if ov.keep_archived_days is not None:
+        out += ["", "[tasks]", f"keep_archived_days = {ov.keep_archived_days}"]
     return "\n".join(out) + "\n"
 
 
@@ -160,6 +170,7 @@ def apply_overrides(base: Config, ov: Overrides) -> Config:
     return Config(
         roles=roles,
         allow_soft_engineer=ov.policy.get("allow_soft_engineer", base.allow_soft_engineer),
+        allow_soft_general=ov.policy.get("allow_soft_general", base.allow_soft_general),
         allow_single_provider=ov.policy.get("allow_single_provider", base.allow_single_provider),
         expected_cao_version=base.expected_cao_version,
         project=ov.name,
@@ -278,3 +289,25 @@ def check_effective(
         errors += [f"roles.{role}: {x}" for x in e]
         warnings += [f"roles.{role}: {x}" for x in w]
     return errors, warnings
+
+
+def set_keep_archived_days(repo: Path, days: int) -> Path:
+    """Record how long archived tasks are kept in the project's ``caokit.toml``.
+
+    Args:
+        repo: Project root; it must already have a project file (``caokit init --name``).
+        days: Days to keep an archived task, at least 1.
+
+    Returns:
+        The path written.
+
+    Raises:
+        ConfigError: No project file, an invalid existing file, or ``days`` below 1.
+    """
+    if days < 1:
+        raise ConfigError("tasks.keep_archived_days must be a whole number of days, at least 1")
+    ov = load_overrides(repo)
+    ov.keep_archived_days = days
+    path = Path(repo) / PROJECT_FILE
+    path.write_text(dump_overrides(ov), encoding="utf-8")
+    return path

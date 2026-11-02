@@ -23,7 +23,7 @@ def check_roster(cfg: Config) -> Result:
     """Apply every guardrail to ``cfg`` and return all errors and warnings.
 
     Rules: tools must exist and not be parked; a tool must be allowed to fill
-    the role; a soft-enforcement engineer needs an explicit opt-in; the
+    the role; a soft-enforcement engineer or General needs an explicit opt-in; the
     inspector must be independent of the engineer (different tool and model
     vendor); a single-provider setup is flagged.
 
@@ -47,16 +47,18 @@ def check_roster(cfg: Config) -> Result:
             continue  # no point checking capabilities of an unselectable tool
         if not a.roles[role].can_fill:
             res.errors.append(f"roles.{role}: tool {b.tool!r} cannot fill the {role} role")
-        # Soft enforcement means CAO cannot deny tools; an engineer has write + shell.
-        if role == "engineer" and a.enforcement == "soft":
-            if not cfg.allow_soft_engineer:
+        # Soft enforcement means CAO cannot deny tools. The engineer has write + shell, and the
+        # General is meant to have neither, so both need an explicit opt-in.
+        opt_in = {"engineer": cfg.allow_soft_engineer, "general": cfg.allow_soft_general}
+        if role in opt_in and a.enforcement == "soft":
+            if not opt_in[role]:
                 res.errors.append(
-                    f"roles.engineer: tool {b.tool!r} has soft enforcement (tool limits are "
-                    "advisory); pass --allow-soft-engineer to accept this"
+                    f"roles.{role}: tool {b.tool!r} has soft enforcement (tool limits are "
+                    f"advisory); pass --allow-soft-{role} to accept this"
                 )
             else:
                 res.warnings.append(
-                    f"engineer uses {b.tool!r}: its tool limits are advisory only, nothing "
+                    f"{role} uses {b.tool!r}: its tool limits are advisory only, nothing "
                     "stops it from writing or running anything it can reach"
                 )
     if "engineer" in adapters and "inspector" in adapters:

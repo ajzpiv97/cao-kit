@@ -12,6 +12,7 @@ from .adapters import ROLES
 from .render import validate_project_name
 
 SCHEMA = 1
+POLICY_KEYS = ("allow_soft_engineer", "allow_soft_general", "allow_single_provider")
 CAO_VERSION = "2.5.4"  # the only CAO version this kit is validated against
 
 
@@ -39,6 +40,7 @@ class Config:
     Attributes:
         roles: Binding for each of the four roles.
         allow_soft_engineer: Lets a soft-enforcement tool be the engineer.
+        allow_soft_general: Lets a soft-enforcement tool be the General.
         allow_single_provider: Downgrades the cross-provider rule to a warning.
         expected_cao_version: CAO version the kit expects; doctor warns otherwise.
         project: Project slug when this is a project-scoped (effective) config; its
@@ -47,6 +49,7 @@ class Config:
 
     roles: dict[str, Binding]
     allow_soft_engineer: bool = False  # lets a soft-enforcement tool be the engineer
+    allow_soft_general: bool = False  # lets a soft-enforcement tool be the General
     allow_single_provider: bool = False  # downgrades the cross-provider rule to a warning
     expected_cao_version: str = CAO_VERSION
     project: str | None = None
@@ -106,7 +109,7 @@ def parse_config(d: dict[str, Any]) -> Config:
     cao = d.get("cao", {})
     _only(cao, {"expected_version"}, "cao")
     pol = d.get("policy", {})
-    _only(pol, {"allow_soft_engineer", "allow_single_provider"}, "policy")
+    _only(pol, set(POLICY_KEYS), "policy")
     raw = d.get("roles", {})
     for r in raw:
         if r not in ROLES:
@@ -123,12 +126,13 @@ def parse_config(d: dict[str, Any]) -> Config:
         if m is not None and (not isinstance(m, str) or not m):
             raise ConfigError(f"roles.{r}.model must be a non-empty string")
         roles[r] = Binding(b["tool"], m)
-    for k in ("allow_soft_engineer", "allow_single_provider"):
+    for k in POLICY_KEYS:
         if not isinstance(pol.get(k, False), bool):
             raise ConfigError(f"policy.{k} must be true or false")
     return Config(
         roles=roles,
         allow_soft_engineer=pol.get("allow_soft_engineer", False),
+        allow_soft_general=pol.get("allow_soft_general", False),
         allow_single_provider=pol.get("allow_single_provider", False),
         expected_cao_version=cao.get("expected_version", CAO_VERSION),
         project=_parse_project_name(d.get("project")),
@@ -174,6 +178,7 @@ def dump_config(c: Config) -> str:
         "",
         "[policy]",
         f"allow_soft_engineer = {str(c.allow_soft_engineer).lower()}",
+        f"allow_soft_general = {str(c.allow_soft_general).lower()}",
         f"allow_single_provider = {str(c.allow_single_provider).lower()}",
     ]
     if c.project:
