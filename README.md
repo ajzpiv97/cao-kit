@@ -16,7 +16,7 @@ own validation commands (test/CI command) and its own rules.
 ## Install and set up
 
 ```bash
-uv tool install --from . caokit        # or: uv tool install git+https://github.com/<user>/cao-kit
+uv tool install git+https://github.com/ajzpiv97/cao-kit   # or, from a checkout: uv tool install --from . caokit
 caokit doctor                          # CLIs, auth, CAO version, single CAO install, server, roster
 caokit company create --general claude:sonnet --engineer claude:opus \
     --scout antigravity:gemini-3.8-flash-medium --inspector antigravity:gemini-4-argon-high
@@ -25,6 +25,19 @@ caokit init /path/to/repo              # scaffold .company/, ROSTER.md, merge .g
 caokit server                          # terminal A: start cao-server (leave running)
 caokit launch /path/to/repo            # terminal B: start the General in this project
 ```
+
+`caokit company create` with no role flags asks for a tool and model per role and offers the recommended
+one. After pulling new changes, reinstall with `uv tool install --force --from . caokit`.
+
+For a hands-off smoke test instead of talking to the General, launch the scaffolded TASK-0001:
+
+```bash
+caokit launch /path/to/repo --headless --auto-approve --prompt-file /path/to/repo/.company/prompts/first-run.md
+caokit status /path/to/repo           # watch the workers; artifacts appear under .company/
+```
+
+Expect artifacts under `.company/` (`artifacts/`, `research/`, `reviews/`, `decisions/`) and no
+application-source changes.
 
 Config lives in `~/.config/caokit/caokit.toml` (`$CAOKIT_HOME` or `--config` to override). Roles are
 tool-agnostic; concrete CAO profiles are named `<role>-<tool>` (CAO allows only `[A-Za-z0-9_-]`).
