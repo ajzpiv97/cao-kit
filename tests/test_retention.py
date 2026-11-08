@@ -101,6 +101,13 @@ class RetentionTests(unittest.TestCase):
         self.run_cli("tasks", "prune", str(self.repo), "--yes")
         self.assertFalse(old.exists())
 
+    def test_cli_prune_rejects_days_below_one(self):
+        old = self.archived(1, 40)
+        for bad in ("0", "-1"):
+            code, _, err = self.run_cli("tasks", "prune", str(self.repo), "--days", bad, "--yes")
+            self.assertEqual((code, "at least 1" in err), (1, True))
+        self.assertTrue(old.exists())
+
 
 class ScheduleTests(unittest.TestCase):
     def fake(self, crontab):

@@ -197,7 +197,7 @@ def cmd_uninstall(a: argparse.Namespace) -> int:
         if a.project:
             cfg = effective_config(Path(a.project), cfg)
         res = uninstall_profiles(cfg, apply=a.yes)
-    except (ConfigError, InstallError) as e:
+    except (ConfigError, InstallError, AdapterError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
     verb = "Removed" if a.yes else "Would remove"
@@ -332,6 +332,8 @@ def cmd_launch(a: argparse.Namespace) -> int:
         prompt = None
         if a.prompt_file:
             prompt = Path(a.prompt_file).read_text(encoding="utf-8")
+            if not prompt.strip():
+                raise ValueError(f"prompt file is empty: {a.prompt_file}")
         argv = build_launch_argv(
             repo,
             general,
@@ -459,6 +461,8 @@ def _tasks_retention(action: str, repo: Path, a: argparse.Namespace) -> int:
         return 0
     if action == "prune":
         days = a.days
+        if days is not None and days < 1:
+            raise ValueError("--days must be a whole number of days, at least 1")
         if days is None:
             days = load_overrides(repo).keep_archived_days
         if days is None:

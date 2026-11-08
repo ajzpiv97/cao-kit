@@ -4,6 +4,7 @@ Every command is a pure function from arguments to an argv list, so tests can ch
 what would run. The CLI layer is the only caller that executes them.
 """
 
+import hashlib
 import re
 from pathlib import Path
 
@@ -19,12 +20,14 @@ def session_name(project: Path, slug: str | None) -> str:
 
     Returns:
         ``slug`` if given, else the directory name reduced to lowercase letters, digits and
-        ``-``, so two checkouts of different projects get different sessions.
+        ``-`` plus a short hash of the full path, so two checkouts that share a directory
+        name (``a/app`` and ``b/app``) still get different sessions.
     """
     if slug:
         return slug
-    name = re.sub(r"[^a-z0-9]+", "-", Path(project).resolve().name.lower()).strip("-")
-    return name or "company"
+    root = Path(project).resolve()
+    name = re.sub(r"[^a-z0-9]+", "-", root.name.lower()).strip("-")[:40].strip("-") or "company"
+    return f"{name}-{hashlib.sha1(str(root).encode()).hexdigest()[:6]}"
 
 
 def session_id(name: str) -> str:
@@ -75,7 +78,7 @@ def build_launch_argv(
     if auto_approve:
         argv.append("--auto-approve")
     if prompt:
-        argv.insert(2, prompt)
+        argv += ["--", prompt]  # "--" so a prompt starting with "-" is not read as an option
     return argv
 
 
@@ -86,7 +89,7 @@ def build_status_argv(session: str) -> list[list[str]]:
 
 def build_send_argv(session: str, message: str, timeout: int = 600) -> list[str]:
     """Build the command that sends ``message`` to a session's General."""
-    return ["cao", "session", "send", session, message, "--timeout", str(timeout)]
+    return ["cao", "session", "send", "--timeout", str(timeout), "--", session, message]
 
 
 def build_stop_argv(session: str) -> list[str]:

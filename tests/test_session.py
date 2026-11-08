@@ -34,7 +34,8 @@ class SessionArgvTests(unittest.TestCase):
             argv = build_launch_argv(
                 Path(d), "p_general-claude", "p", prompt="go", headless=True, auto_approve=True
             )
-        self.assertEqual(argv[:4], ["cao", "launch", "go", "--agents"])
+        self.assertEqual(argv[:3], ["cao", "launch", "--agents"])
+        self.assertEqual(argv[-2:], ["--", "go"])
         self.assertIn("--headless", argv)
         self.assertIn("--auto-approve", argv)
         self.assertNotIn("--yolo", argv)
@@ -46,12 +47,25 @@ class SessionArgvTests(unittest.TestCase):
 
     def test_session_name_prefers_project_slug_then_directory(self):
         self.assertEqual(session_name(Path("/x/My App!"), "slug"), "slug")
-        self.assertEqual(session_name(Path("/x/My App!"), None), "my-app")
+        self.assertRegex(session_name(Path("/x/My App!"), None), r"^my-app-[0-9a-f]{6}$")
         self.assertEqual(session_id("slug"), "cao-slug")
+
+    def test_same_directory_name_in_different_parents_gets_different_sessions(self):
+        self.assertNotEqual(session_name(Path("/a/app"), None), session_name(Path("/b/app"), None))
+        self.assertEqual(session_name(Path("/a/app"), None), session_name(Path("/a/app"), None))
+
+    def test_a_message_starting_with_a_dash_stays_a_message(self):
+        with tempfile.TemporaryDirectory() as d:
+            argv = build_launch_argv(Path(d), "general-claude", prompt="--yolo")
+        self.assertEqual(argv[-2:], ["--", "--yolo"])
+        self.assertEqual(build_send_argv("cao-p", "--async")[-2:], ["cao-p", "--async"])
+        self.assertLess(build_send_argv("cao-p", "--async").index("--"), 6)
 
     def test_session_id_does_not_double_the_cao_prefix(self):
         self.assertEqual(session_id("cao-trial"), "cao-trial")
-        self.assertEqual(session_id(session_name(Path("/x/cao-trial"), None)), "cao-trial")
+        name = session_name(Path("/x/cao-trial"), None)
+        self.assertTrue(name.startswith("cao-trial-"))
+        self.assertEqual(session_id(name), name)
 
     def test_status_send_stop(self):
         self.assertEqual(
@@ -59,7 +73,7 @@ class SessionArgvTests(unittest.TestCase):
         )
         self.assertEqual(
             build_send_argv("cao-p", "hi", 30),
-            ["cao", "session", "send", "cao-p", "hi", "--timeout", "30"],
+            ["cao", "session", "send", "--timeout", "30", "--", "cao-p", "hi"],
         )
         self.assertEqual(build_stop_argv("cao-p"), ["cao", "shutdown", "--session", "cao-p"])
 
@@ -89,15 +103,21 @@ class SessionCliTests(unittest.TestCase):
         )
         self.assertEqual(code, 0)
         argv = calls[0]
-        self.assertEqual(argv[2], "do the thing")
+        self.assertEqual(argv[-2:], ["--", "do the thing"])
         self.assertEqual(argv[argv.index("--agents") + 1], "pj_general-claude")
         self.assertEqual(argv[argv.index("--session-name") + 1], "pj")
+
+    def test_empty_prompt_file_is_an_error_not_a_silent_launch(self):
+        prompt = self.repo / "empty.md"
+        prompt.write_text("  \n")
+        code, calls, err = self.run_cli("launch", str(self.repo), "--prompt-file", str(prompt))
+        self.assertEqual((code, calls, "empty" in err), (1, [], True))
 
     def test_stop_and_send_target_the_project_session(self):
         _, calls, _ = self.run_cli("stop", str(self.repo))
         self.assertEqual(calls[0], ["cao", "shutdown", "--session", "cao-pj"])
         _, calls, _ = self.run_cli("send", "hello", "--repo", str(self.repo))
-        self.assertEqual(calls[0][:5], ["cao", "session", "send", "cao-pj", "hello"])
+        self.assertEqual(calls[0][-2:], ["cao-pj", "hello"])
 
     def test_status_runs_list_then_workers(self):
         _, calls, _ = self.run_cli("status", str(self.repo))
