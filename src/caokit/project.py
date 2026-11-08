@@ -44,12 +44,14 @@ class Overrides:
         policy: Policy switches the project sets explicitly.
         keep_archived_days: Days an archived task file is kept before ``tasks prune``
             deletes it; None keeps archived tasks forever.
+        worktrees: Give each source-changing task its own git worktree (CAO ``use_worktree``).
     """
 
     name: str
     roles: dict[str, dict[str, str]] = field(default_factory=dict)
     policy: dict[str, bool] = field(default_factory=dict)
     keep_archived_days: int | None = None
+    worktrees: bool = False
 
 
 def parse_overrides(d: dict[str, Any]) -> Overrides:
@@ -91,11 +93,19 @@ def parse_overrides(d: dict[str, Any]) -> Overrides:
                 raise ConfigError(f"roles.{role}.{k} must be a non-empty string")
         roles[role] = dict(o)
     tasks = d.get("tasks", {})
-    _only(tasks, {"keep_archived_days"}, "tasks")
+    _only(tasks, {"keep_archived_days", "worktrees"}, "tasks")
+    if not isinstance(tasks.get("worktrees", False), bool):
+        raise ConfigError("tasks.worktrees must be true or false")
     days = tasks.get("keep_archived_days")
     if days is not None and (isinstance(days, bool) or not isinstance(days, int) or days < 1):
         raise ConfigError("tasks.keep_archived_days must be a whole number of days, at least 1")
-    return Overrides(name=name, roles=roles, policy=dict(pol), keep_archived_days=days)
+    return Overrides(
+        name=name,
+        roles=roles,
+        policy=dict(pol),
+        keep_archived_days=days,
+        worktrees=tasks.get("worktrees", False),
+    )
 
 
 def load_overrides(repo: Path) -> Overrides:
@@ -121,6 +131,17 @@ def load_overrides(repo: Path) -> Overrides:
         raise ConfigError(f"invalid TOML in {path}: {e}") from e
 
 
+def worktrees_enabled(repo: Path) -> bool:
+    """Return True if the project turned per-task worktrees on (False without a project file).
+
+    Raises:
+        ConfigError: The project file exists but is invalid.
+    """
+    if not (Path(repo) / PROJECT_FILE).is_file():
+        return False
+    return load_overrides(repo).worktrees
+
+
 def dump_overrides(ov: Overrides) -> str:
     """Serialise overrides to TOML text.
 
@@ -137,8 +158,13 @@ def dump_overrides(ov: Overrides) -> str:
     for role in ROLES:  # fixed order keeps the file stable across runs
         if role in ov.roles:
             out += ["", f"[roles.{role}]"] + [f"{k} = {q(v)}" for k, v in ov.roles[role].items()]
+    tasks = []
     if ov.keep_archived_days is not None:
-        out += ["", "[tasks]", f"keep_archived_days = {ov.keep_archived_days}"]
+        tasks.append(f"keep_archived_days = {ov.keep_archived_days}")
+    if ov.worktrees:
+        tasks.append("worktrees = true")
+    if tasks:
+        out += ["", "[tasks]", *tasks]
     return "\n".join(out) + "\n"
 
 
@@ -308,6 +334,26 @@ def set_keep_archived_days(repo: Path, days: int) -> Path:
         raise ConfigError("tasks.keep_archived_days must be a whole number of days, at least 1")
     ov = load_overrides(repo)
     ov.keep_archived_days = days
+    path = Path(repo) / PROJECT_FILE
+    path.write_text(dump_overrides(ov), encoding="utf-8")
+    return path
+
+
+def set_worktrees(repo: Path, on: bool) -> Path:
+    """Turn per-task git worktrees on or off in the project's ``caokit.toml``.
+
+    Args:
+        repo: Project root; it must already have a project file (``caokit init --name``).
+        on: True to have the General dispatch each engineer into its own worktree.
+
+    Returns:
+        The path written.
+
+    Raises:
+        ConfigError: No project file or an invalid existing one.
+    """
+    ov = load_overrides(repo)
+    ov.worktrees = on
     path = Path(repo) / PROJECT_FILE
     path.write_text(dump_overrides(ov), encoding="utf-8")
     return path

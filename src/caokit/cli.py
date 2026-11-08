@@ -9,7 +9,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from . import __version__, schedule
+from . import __version__, schedule, worktrees
 from .adapters import ROLES, AdapterError, adapter_ids, default_runner, load_adapter
 from .company import CompanyError, create_company, parse_binding, write_company
 from .config import Binding, ConfigError, default_path, load_config
@@ -37,6 +37,8 @@ from .project import (
     load_overrides,
     resolve_project,
     set_keep_archived_days,
+    set_worktrees,
+    worktrees_enabled,
 )
 from .render import profile_name
 from .reset import ResetError, plan, run_reset
@@ -331,6 +333,12 @@ def cmd_launch(a: argparse.Namespace) -> int:
     """
     try:
         repo, general, name = _session_of(a)
+        if worktrees_enabled(repo):
+            errors, warnings = worktrees.problems(repo)
+            if errors:
+                raise ValueError("worktrees are on but unusable:\n  " + "\n  ".join(errors))
+            for w in warnings:
+                print(f"warning: {w}", file=sys.stderr)
         prompt = None
         if a.prompt_file:
             prompt = Path(a.prompt_file).read_text(encoding="utf-8")
@@ -442,6 +450,31 @@ def cmd_reset(a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_worktrees(a: argparse.Namespace) -> int:
+    """Run ``caokit worktrees [repo]``: show the branches and checkouts CAO made for tasks.
+
+    Nothing is removed: a branch with unmerged commits is work the human has not merged yet.
+    """
+    repo = Path(a.repo).resolve()
+    try:
+        on = worktrees_enabled(repo)
+    except ConfigError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    print(f"worktrees: {'on' if on else 'off'}")
+    found = worktrees.list_task_worktrees(repo)
+    if not found:
+        print("No cao/* branches.")
+    for w in found:
+        state = f"{w.ahead} unmerged commit(s)" if w.ahead else "nothing to merge"
+        where = f"checkout {w.path}" if w.path else "checkout removed"
+        flag = ", UNCOMMITTED changes (lost when its terminal is deleted)" if w.dirty else ""
+        print(f"  {w.branch}: {state}; {where}{flag}")
+    if any(w.ahead for w in found):
+        print("Merge a branch yourself (`git merge cao/<id>`), then `git branch -d cao/<id>`.")
+    return 0
+
+
 def cmd_server(a: argparse.Namespace) -> int:
     """Run ``caokit server``: start the CAO server in the foreground (Ctrl-C stops it)."""
     print("Starting the CAO server (tmux backend). Leave this terminal running.")
@@ -463,6 +496,25 @@ def _caokit_exe() -> str:
     raise ValueError("cannot find the caokit executable on PATH; install it with `uv tool install`")
 
 
+def _set_worktrees(repo: Path, on: bool) -> int:
+    """Handle ``tasks policy --worktrees on|off``; turning it on needs a usable git repo."""
+    if on:
+        errors, warnings = worktrees.problems(repo)
+        if errors:
+            print("error: cannot use worktrees:\n  " + "\n  ".join(errors), file=sys.stderr)
+            return 1
+        for w in warnings:
+            print(f"warning: {w}", file=sys.stderr)
+    print(f"Wrote {set_worktrees(repo, on)}")
+    print(
+        "worktrees: on. Reinstall the profiles (`caokit install`) so the roles carry the worktree "
+        "rules, then relaunch."
+        if on
+        else "worktrees: off"
+    )
+    return 0
+
+
 def _tasks_retention(action: str, repo: Path, a: argparse.Namespace) -> int:
     """Handle ``tasks prune``, ``tasks policy`` and ``tasks schedule`` for one project.
 
@@ -472,9 +524,13 @@ def _tasks_retention(action: str, repo: Path, a: argparse.Namespace) -> int:
         schedule.ScheduleError: The crontab could not be written.
     """
     if action == "policy":
+        if a.worktrees is not None:
+            return _set_worktrees(repo, a.worktrees == "on")
         if a.keep_archived_days is None:
-            days = load_overrides(repo).keep_archived_days
+            ov = load_overrides(repo)
+            days = ov.keep_archived_days
             print(f"keep_archived_days: {days if days else 'not set (archived tasks are kept)'}")
+            print(f"worktrees: {'on' if ov.worktrees else 'off'}")
             return 0
         print(f"Wrote {set_keep_archived_days(repo, a.keep_archived_days)}")
         return 0
@@ -599,6 +655,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     tk.add_argument(
         "--keep-archived-days", type=int, metavar="N", help="policy: set the retention in days"
     )
+    tk.add_argument(
+        "--worktrees",
+        choices=("on", "off"),
+        help="policy: give each source-changing task its own git worktree (CAO use_worktree)",
+    )
     tk.add_argument("--install", action="store_true", help="schedule: add the daily cron entry")
     tk.add_argument("--remove", action="store_true", help="schedule: remove the cron entry")
     tk.add_argument("--at", default=schedule.DEFAULT_TIME, help="schedule: time of day, HH:MM")
@@ -616,6 +677,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "instead of waiting up to 300s for the reply",
     )
     lc.set_defaults(fn=cmd_launch)
+    wt = sub.add_parser("worktrees", help="list the task branches and worktrees CAO created")
+    wt.add_argument("repo", nargs="?", default=".")
+    wt.set_defaults(fn=cmd_worktrees)
     st = sub.add_parser("status", help="show sessions and this project's workers")
     st.add_argument("repo", nargs="?", default=".")
     st.set_defaults(fn=cmd_status)
