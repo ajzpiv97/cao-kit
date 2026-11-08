@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.1 (2026-11-08)
 
 ### Fixed
 - `status`, `send` and `stop` targeted `cao-cao-<name>` for projects whose session name starts with `cao-`; `stop` reported success while the session kept running.
