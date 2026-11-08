@@ -49,6 +49,10 @@ class SessionArgvTests(unittest.TestCase):
         self.assertEqual(session_name(Path("/x/My App!"), None), "my-app")
         self.assertEqual(session_id("slug"), "cao-slug")
 
+    def test_session_id_does_not_double_the_cao_prefix(self):
+        self.assertEqual(session_id("cao-trial"), "cao-trial")
+        self.assertEqual(session_id(session_name(Path("/x/cao-trial"), None)), "cao-trial")
+
     def test_status_send_stop(self):
         self.assertEqual(
             build_status_argv("cao-p")[1], ["cao", "session", "status", "cao-p", "--workers"]

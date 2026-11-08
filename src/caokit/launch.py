@@ -28,8 +28,12 @@ def session_name(project: Path, slug: str | None) -> str:
 
 
 def session_id(name: str) -> str:
-    """Return the ID CAO gives a session started with ``--session-name name``."""
-    return SESSION_PREFIX + name
+    """Return the ID CAO gives a session started with ``--session-name name``.
+
+    CAO adds its prefix only when the name does not already start with it, so a project
+    called ``cao-foo`` is the session ``cao-foo``, not ``cao-cao-foo``.
+    """
+    return name if name.startswith(SESSION_PREFIX) else SESSION_PREFIX + name
 
 
 def build_launch_argv(
