@@ -1,6 +1,7 @@
 """caokit command line."""
 
 import argparse
+import functools
 import os
 import shutil
 import subprocess
@@ -9,7 +10,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__, schedule
-from .adapters import ROLES, AdapterError, adapter_ids, load_adapter
+from .adapters import ROLES, AdapterError, adapter_ids, default_runner, load_adapter
 from .company import CompanyError, create_company, parse_binding, write_company
 from .config import Binding, ConfigError, default_path, load_config
 from .doctor import format_report, run_doctor
@@ -39,6 +40,7 @@ from .project import (
 )
 from .render import profile_name
 from .reset import ResetError, plan, run_reset
+from .roster import check_roster
 from .tasks import (
     TaskError,
     archive_finished,
@@ -402,9 +404,24 @@ def cmd_reset(a: argparse.Namespace) -> int:
         return 0
 
     def reinstall() -> None:
-        res = install_profiles(cfg, home)
+        try:
+            res = install_profiles(cfg, home)
+        except (InstallError, AdapterError) as e:
+            raise ResetError(f"profile install failed: {e}") from e
         if res.failed:
             raise ResetError("profile install failed: " + ", ".join(res.failed))
+
+    # Check everything that can be checked now: reset moves CAO's state and uninstalls CAO,
+    # so a bad roster or a missing uv must stop it before the first destructive step.
+    try:
+        problems = check_roster(cfg).errors
+    except AdapterError as e:
+        problems = [str(e)]
+    if not shutil.which("uv"):
+        problems.append("`uv` is not on PATH, so CAO could not be reinstalled")
+    if problems:
+        print("error: not resetting:\n  " + "\n  ".join(problems), file=sys.stderr)
+        return 1
 
     try:
         res = run_reset(
@@ -413,6 +430,7 @@ def cmd_reset(a: argparse.Namespace) -> int:
             Path.home() / ".gemini" / "config" / "mcp_config.json",
             Path.home(),
             install_profiles=reinstall,
+            slow_runner=functools.partial(default_runner, timeout=900),
         )
     except ResetError as e:
         print(f"error: {e}", file=sys.stderr)

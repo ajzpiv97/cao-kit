@@ -1,4 +1,5 @@
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -6,7 +7,7 @@ from pathlib import Path
 from caokit.config import Binding, Config
 from caokit.doctor import Report, _check_server
 from caokit.install import uninstall_profiles
-from caokit.reset import ResetError, _cao_server_pids, plan, run_reset
+from caokit.reset import ResetError, _cao_server_pids, _drop_cao_servers, plan, run_reset
 
 
 class R:
@@ -78,6 +79,64 @@ class ResetTests(unittest.TestCase):
     def test_wrong_version_after_install_is_an_error(self):
         with self.assertRaisesRegex(ResetError, "not 2.5.4"):
             run_reset("2.5.4", self.home, self.mcp, self.root, make_runner([], version="cao 2.5.3"))
+
+    def test_a_hung_install_is_a_reset_error_naming_the_backup(self):
+        def runner(argv):
+            if argv[:3] == ["uv", "tool", "install"]:
+                raise subprocess.TimeoutExpired(argv, 60)
+            return make_runner([])(argv)
+
+        with self.assertRaisesRegex(ResetError, "backup"):
+            run_reset("2.5.4", self.home, self.mcp, self.root, runner)
+
+    def test_install_uses_the_slow_runner(self):
+        slow_calls = []
+        run_reset(
+            "2.5.4",
+            self.home,
+            self.mcp,
+            self.root,
+            make_runner([]),
+            slow_runner=make_runner(slow_calls),
+        )
+        self.assertEqual(slow_calls, [["uv", "tool", "install", "cli-agent-orchestrator==2.5.4"]])
+
+    def test_missing_tools_do_not_stop_the_stop_phase(self):
+        def runner(argv):
+            if (
+                argv[0] in ("tmux", "ps", "cao")
+                and argv[1:2] != ["--version"]
+                and argv[1:2] != ["init"]
+            ):
+                raise FileNotFoundError(argv[0])
+            return make_runner([])(argv)
+
+        res = run_reset("2.5.4", self.home, self.mcp, self.root, runner)
+        self.assertIn("installed CAO 2.5.4", res.steps)
+
+    def test_refuses_to_move_a_symlink_or_the_home_folder(self):
+        link = self.root / "link"
+        link.symlink_to(self.home)
+        for bad in (link, Path.home()):
+            with self.assertRaises(ResetError):
+                run_reset("2.5.4", bad, self.mcp, self.root, make_runner([]))
+        self.assertTrue(self.home.exists())
+
+    def test_two_resets_in_one_second_get_separate_backups(self):
+        a = run_reset("2.5.4", self.home, self.mcp, self.root, make_runner([]))
+        self.home.mkdir()
+        b = run_reset("2.5.4", self.home, self.mcp, self.root, make_runner([]))
+        self.assertNotEqual(a.backup, b.backup)
+
+    def test_version_check_is_not_a_substring_match(self):
+        with self.assertRaisesRegex(ResetError, "not 2.5"):
+            run_reset("2.5", self.home, self.mcp, self.root, make_runner([], version="cao 2.5.10"))
+
+    def test_mcp_config_with_odd_shape_is_left_alone(self):
+        for text in ("[]", '{"mcpServers": []}', '{"mcpServers": {"caobot": {"command": "x"}}}'):
+            self.mcp.write_text(text)
+            self.assertEqual(_drop_cao_servers(self.mcp), [])
+            self.assertEqual(self.mcp.read_text(), text)
 
     def test_server_pid_match_ignores_greps_and_editors(self):
         ps = (

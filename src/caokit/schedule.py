@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from .adapters import Runner, default_runner
+from .adapters import ProcessResult, Runner, default_runner
 
 MARKER = "# caokit-tasks:"
 DEFAULT_TIME = "03:17"
@@ -50,7 +50,7 @@ def _tag(repo: Path) -> str:
     return MARKER + _escape(str(repo))
 
 
-def _run(runner: Runner, argv: list[str]):
+def _run(runner: Runner, argv: list[str]) -> ProcessResult:
     try:
         return runner(argv)
     except (OSError, subprocess.TimeoutExpired) as e:

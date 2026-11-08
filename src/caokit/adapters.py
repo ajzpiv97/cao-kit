@@ -43,20 +43,21 @@ class ProcessResult(Protocol):
 Runner = Callable[[Sequence[str]], ProcessResult]
 
 
-def default_runner(argv: Sequence[str]) -> ProcessResult:
-    """Run ``argv`` for real, capturing text output, with a 60s timeout.
+def default_runner(argv: Sequence[str], timeout: int = 60) -> ProcessResult:
+    """Run ``argv`` for real, capturing text output, with a timeout (60s by default).
 
     Args:
         argv: Command and arguments; never passed through a shell.
+        timeout: Seconds to wait before giving up.
 
     Returns:
         The completed process with ``stdout``/``stderr`` as text.
 
     Raises:
         OSError: The binary does not exist or cannot be executed.
-        subprocess.TimeoutExpired: The command ran longer than 60 seconds.
+        subprocess.TimeoutExpired: The command ran longer than ``timeout`` seconds.
     """
-    return subprocess.run(list(argv), capture_output=True, text=True, timeout=60)
+    return subprocess.run(list(argv), capture_output=True, text=True, timeout=timeout)
 
 
 @dataclass
