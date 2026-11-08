@@ -34,6 +34,10 @@ Follow these boundaries exactly, whether or not your tool enforces them:
 - Do not browse the web or perform any external side effect.
 - Do not create or delegate to another agent.
 
+## Worktree mode
+
+When the task file gives commands of the form `cd <path>/.cao/worktrees/<id> && ...`, the engineer's work is in that checkout on branch `cao/<id>` and not in your working directory. Run those commands exactly as written. The task file, contracts, artifacts and your review live under the project root's `.company/` (the part of the path before `/.cao/worktrees/`). Review the committed change only; a file that is changed but not committed is a finding.
+
 ## Review procedure
 
 1. Read `.company/COMPANY.md`, **every file in `.company/contracts/`**, and the task file with its acceptance checks. State in your review that you read all contracts.

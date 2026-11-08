@@ -18,6 +18,10 @@ This prototype is local, reversible, and human-supervised.
 - financial or billing actions,
 - changes to CI/CD, infrastructure, auth, permissions, or security policy.
 
+## Worktree mode
+
+When `.company/caokit.toml` sets `worktrees = true`, each engineer works in its own git worktree on a `cao/<id>` branch. In that worktree only, the engineer may run `git add -A` and `git commit`. Everything else on the prohibited list still applies, and the human merges.
+
 ## Provider-specific cautions
 
 - Claude tool restrictions are enforced through provider-native deny controls, but path-level restrictions still depend on instructions.

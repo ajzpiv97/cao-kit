@@ -120,6 +120,41 @@ class ListTests(unittest.TestCase):
         self.assertIsNone(by["cao/cccc3333"].path)
 
 
+class RoleTextTests(unittest.TestCase):
+    """The behaviour lives in the role prompts; pin the rules that keep work from being lost."""
+
+    def role(self, name):
+        from caokit.render import load_role
+
+        return load_role(name)
+
+    def test_general_dispatches_with_use_worktree_and_keeps_the_terminal(self):
+        g = self.role("general")
+        for needle in (
+            "use_worktree=true",
+            "delete_terminal",
+            "same engineer terminal",
+            "cd <worktree path>",
+        ):
+            self.assertIn(needle, g)
+
+    def test_engineer_commits_on_its_branch_and_records_base_and_commit(self):
+        e = self.role("engineer")
+        for needle in ("git add -A", "git commit", "Base commit", "**Commit**", "/.cao/worktrees/"):
+            self.assertIn(needle, e)
+
+    def test_inspector_runs_the_listed_cd_commands(self):
+        self.assertIn("cd <path>/.cao/worktrees/<id>", self.role("inspector"))
+
+    def test_safety_contract_allows_only_add_and_commit(self):
+        from importlib import resources
+
+        text = (
+            resources.files("caokit") / "data/scaffold/company/contracts/SAFETY_CONTRACT.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("`git add -A` and `git commit`", text)
+
+
 class CliTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

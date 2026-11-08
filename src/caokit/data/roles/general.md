@@ -94,6 +94,21 @@ Classify every task before dispatching. **Plan path is the default whenever you 
 - Never allow a worker to create additional workers during the prototype.
 - Do not redo a worker's assigned work merely because it is slower than expected.
 
+## Worktree mode
+
+Applies only when `.company/caokit.toml` contains `worktrees = true` under `[tasks]`. Otherwise ignore this section.
+
+Each source-changing task gets its own git worktree (a private checkout and branch), so parallel engineers cannot overwrite each other and the main checkout stays untouched until the human merges.
+
+- Dispatch the `engineer` with `use_worktree=true`. Never set it for the `scout` or the `inspector`.
+- CAO deletes the checkout when you call `delete_terminal` on that terminal and discards anything not committed. The engineer commits its work on its own branch (see the Engineer role), so a committed result survives. **Do not call `delete_terminal` on an engineer until its artifact records a commit hash**, and keep the terminal until the task is `ACCEPTED`, `CANCELLED` or `FAILED`.
+- The worktree is `<project root>/.cao/worktrees/<engineer terminal ID>` on branch `cao/<engineer terminal ID>`, cut from the repo's HEAD when the terminal is created. Record both in `.company/TEAM.md` and the task file as soon as you have the terminal ID.
+- **Rework goes to the same engineer terminal** with `send_message`, never to a new engineer: a new worktree would start from HEAD without the first pass. The engineer makes a new commit on the same branch.
+- The `.company/` folder is git-ignored, so it does not exist inside a worktree. Always give workers absolute paths under the project root for the task file, artifacts and reviews.
+- The `inspector` runs in the project root, not in the worktree (CAO does not let you set its directory by default). Put the exact commands for it in the task's "Authorised validation commands", each as `cd <worktree path> && <command>`, so it tests the engineer's code. Also list `cd <worktree path> && git diff <base commit> HEAD` and `git log --oneline -5`, where the base commit is the one in the engineer's artifact.
+- The engineer's `git add -A` and `git commit` are the only state-changing git commands any worker may run, and only in its own worktree. Add them to the engineer's authorised list in the task file. Do not flag them as a contract breach.
+- At acceptance, tell the human the branch name and that merging it is theirs (`git merge cao/<id>`, then `git branch -d cao/<id>`). You have no shell and must not merge. `caokit worktrees` lists the branches that still hold unmerged work.
+
 ## Workspace policy
 
 You may read the repository. You may write only under `.company/`.

@@ -69,6 +69,7 @@ Change the CAO version only with `uv tool install --force 'cli-agent-orchestrato
 | `caokit uninstall [--project REPO] [--yes]` | Remove a roster's profiles from CAO; a dry run unless `--yes`. Leftover `agent-context` copies are moved to a backup, not deleted |
 | `caokit init REPO [--name P] [--override ROLE=TOOL[:MODEL]] [--force-project]` | Scaffold `.company/` in a git repo; `--name` namespaces its profiles; `--force-project` overwrites an existing project file |
 | `caokit server` | Run `cao-server` (tmux backend) in the foreground |
+| `caokit worktrees [REPO]` | List the `cao/*` task branches and checkouts, with unmerged commits |
 | `caokit launch [REPO]` | Start the project's General; `--prompt-file F`, `--headless`, `--auto-approve`, `--async` |
 | `caokit status [REPO]` / `send MESSAGE [--repo REPO] [--timeout S]` / `stop [REPO]` | Show sessions and workers, message the General (waits up to 600 s by default), shut the session down |
 | `caokit tasks [list] [REPO]` | Open tasks and what blocks them (`--all` includes finished ones) |
@@ -210,8 +211,8 @@ leaves no token data, so its share is not counted.
 
 - Claude roles: CAO deny-lists (native) plus `permissionMode: auto`.
 - Antigravity: restrictions are **advisory**; treat its profile as guidance, not a boundary.
-- No path-level enforcement: any agent with write access can write anywhere in the repo. Use **one git
-  worktree per writing task** before using the kit on a real project, and inspect `git diff` afterwards.
+- No path-level enforcement: any agent with write access can write anywhere in the repo. Turn on **worktrees**
+  (below) so each writing task gets its own git worktree, and inspect `git diff` afterwards.
 - No role may deploy, merge, push, contact third parties, use production credentials, change billing,
   or run destructive git. The human commits.
 - Human approval is required for plan-path tasks, acceptance, merges, pushes, deployments, secrets,
@@ -232,9 +233,25 @@ codexConfig:
 and an explicit `model_reasoning_effort`. Codex 0.134+ reads `~/.codex/NAME.config.toml` files.
 The old Codex profile files are in git history.
 
-## Planned
+## Worktrees: one per task
 
-- CAO's `use_worktree` for one worktree per task.
+```bash
+caokit tasks policy /path/to/repo --worktrees on   # needs a git repo root with a commit
+caokit install                                     # reinstall profiles so the roles carry the rules
+caokit worktrees /path/to/repo                     # list the task branches CAO left behind
+```
+
+With it on, the General dispatches each source-changing engineer through CAO's `use_worktree`: a private checkout at
+`<repo>/.cao/worktrees/<terminal-id>` on branch `cao/<terminal-id>`, cut from HEAD. What to know:
+
+- The engineer **commits on its own branch** (the only git write any worker may do, and only there). CAO deletes the
+  checkout, with anything uncommitted, when the terminal is deleted; a committed branch survives.
+- The General keeps the engineer's terminal until the task is accepted or cancelled, and sends rework to the same
+  terminal, so one task is one worktree.
+- The inspector reviews and re-runs the validation commands inside that checkout (`cd <worktree> && ...`).
+- **You merge**: `git merge cao/<id>`, then `git branch -d cao/<id>`. caokit never merges or deletes branches.
+- A new worktree starts from the last commit, so uncommitted changes in your main checkout are not in it.
+- `.company/` is git-ignored, so agents read and write it at the project root, not in the checkout.
 
 ## More
 

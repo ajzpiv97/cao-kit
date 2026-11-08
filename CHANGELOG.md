@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Per-task git worktrees through CAO's `use_worktree`: `caokit tasks policy --worktrees on|off`, `caokit worktrees` to list the `cao/*` branches, and a launch check that the repo is a git root with a commit. The General dispatches each engineer into its own worktree, keeps the terminal until acceptance, and sends rework to the same terminal; the engineer commits on its branch; the inspector reviews inside the checkout; the human merges. Reinstall profiles after turning it on.
+
 ## v0.2.1 (2026-11-08)
 
 ### Fixed
