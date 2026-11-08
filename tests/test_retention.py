@@ -1,10 +1,14 @@
 import contextlib
 import io
 import os
+import shutil
+import subprocess
+import sys
 import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from caokit import cli, schedule
 from caokit.config import ConfigError
@@ -143,6 +147,80 @@ class ScheduleTests(unittest.TestCase):
 
         with self.assertRaises(schedule.ScheduleError):
             schedule.install("x", Path("/p"), runner)
+
+    def test_unreadable_crontab_is_never_treated_as_empty(self):
+        written = []
+
+        def runner(argv):
+            if argv[:2] == ["crontab", "-l"]:
+                return R(1, err="crontab: error: locked")
+            written.append(argv)
+            return R(0)
+
+        with self.assertRaises(schedule.ScheduleError):
+            schedule.install("x", Path("/p"), runner)
+        with self.assertRaises(schedule.ScheduleError):
+            schedule.remove(Path("/p"), runner)
+        self.assertEqual(written, [])
+
+    def test_missing_or_hung_crontab_binary_is_a_schedule_error(self):
+        def missing(argv):
+            raise FileNotFoundError("crontab")
+
+        def hung(argv):
+            raise subprocess.TimeoutExpired(argv, 60)
+
+        for runner in (missing, hung):
+            with self.assertRaises(schedule.ScheduleError):
+                schedule.install("x", Path("/p"), runner)
+
+    def test_percent_in_a_path_is_escaped_and_still_removable(self):
+        repo = Path("/p/50%-done")
+        line = schedule.cron_line("/x/caokit", repo)
+        self.assertNotRegex(line, r"(?<!\\)%")
+        runner, state = self.fake("0 1 * * * backup\n")
+        schedule.install(line, repo, runner)
+        self.assertTrue(schedule.remove(repo, runner))
+        self.assertEqual(state["tab"], "0 1 * * * backup\n")
+
+
+class ScheduleCliTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.repo = Path(self.tmp.name)
+        (self.repo / ".company" / "tasks").mkdir(parents=True)
+        (self.repo / ".company" / "caokit.toml").write_text(
+            'schema = 1\n[project]\nname = "demo"\n', encoding="utf-8"
+        )
+
+    def run_cli(self, *argv):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = cli.main(list(argv))
+        return code, out.getvalue(), err.getvalue()
+
+    def test_install_with_keep_archived_days_persists_it(self):
+        installed = []
+        with (
+            mock.patch.object(cli, "_caokit_exe", return_value="/x/caokit"),
+            mock.patch.object(schedule, "install", lambda line, repo: installed.append(line)),
+        ):
+            code, _, _ = self.run_cli(
+                "tasks", "schedule", str(self.repo), "--install", "--keep-archived-days", "30"
+            )
+        self.assertEqual((code, len(installed)), (0, 1))
+        self.assertEqual(load_overrides(self.repo).keep_archived_days, 30)
+
+    def test_cron_exe_must_be_absolute(self):
+        with (
+            mock.patch.object(shutil, "which", return_value=None),
+            mock.patch.object(sys, "argv", ["src/caokit/cli.py"]),
+            self.assertRaises(ValueError),
+        ):
+            cli._caokit_exe()
+        with mock.patch.object(shutil, "which", return_value="/usr/bin/caokit"):
+            self.assertEqual(cli._caokit_exe(), "/usr/bin/caokit")
 
 
 if __name__ == "__main__":

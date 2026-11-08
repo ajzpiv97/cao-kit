@@ -1,6 +1,7 @@
 """caokit command line."""
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -426,6 +427,21 @@ def cmd_server(a: argparse.Namespace) -> int:
     return _run(["cao-server"])
 
 
+def _caokit_exe() -> str:
+    """Return the absolute path of the ``caokit`` executable, for a cron entry.
+
+    Raises:
+        ValueError: ``caokit`` is not on PATH and the running script is not a usable file.
+    """
+    found = shutil.which("caokit")
+    if found:
+        return str(Path(found).absolute())
+    me = Path(sys.argv[0])
+    if me.is_file() and me.suffix != ".py" and os.access(me, os.X_OK):
+        return str(me.absolute())
+    raise ValueError("cannot find the caokit executable on PATH; install it with `uv tool install`")
+
+
 def _tasks_retention(action: str, repo: Path, a: argparse.Namespace) -> int:
     """Handle ``tasks prune``, ``tasks policy`` and ``tasks schedule`` for one project.
 
@@ -465,7 +481,7 @@ def _tasks_retention(action: str, repo: Path, a: argparse.Namespace) -> int:
         removed = schedule.remove(repo)
         print("Removed the cron entry." if removed else "No cron entry for this project.")
         return 0
-    line = schedule.cron_line(shutil.which("caokit") or sys.argv[0], repo, a.at)
+    line = schedule.cron_line(_caokit_exe(), repo, a.at)
     if a.install:
         if a.keep_archived_days is None and load_overrides(repo).keep_archived_days is None:
             print(
@@ -474,6 +490,8 @@ def _tasks_retention(action: str, repo: Path, a: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
+        if a.keep_archived_days is not None:  # the cron line carries no --days, so save it
+            print(f"Wrote {set_keep_archived_days(repo, a.keep_archived_days)}")
         schedule.install(line, repo)
         print("Installed daily cron entry:")
     else:

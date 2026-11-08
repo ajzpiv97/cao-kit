@@ -5,6 +5,7 @@ so installing twice replaces the entry and removing it touches nothing else in t
 """
 
 import shlex
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -37,13 +38,33 @@ def cron_line(caokit: str, repo: Path, at: str = DEFAULT_TIME) -> str:
         raise ValueError(f"invalid time {at!r}: use HH:MM, 24 hour")
     exe, root = shlex.quote(caokit), shlex.quote(str(repo))
     cmd = f"{exe} tasks archive {root} && {exe} tasks prune {root} --yes"
-    return f"{int(mm)} {int(hh)} * * * {cmd} {MARKER}{repo}"
+    return f"{int(mm)} {int(hh)} * * * {_escape(cmd)} {_tag(repo)}"
+
+
+def _escape(text: str) -> str:
+    """Escape ``%``: cron turns an unescaped one into a newline and feeds the rest to stdin."""
+    return text.replace("%", "\\%")
+
+
+def _tag(repo: Path) -> str:
+    return MARKER + _escape(str(repo))
+
+
+def _run(runner: Runner, argv: list[str]):
+    try:
+        return runner(argv)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise ScheduleError(f"could not run {argv[0]}: {e}") from e
 
 
 def _read(runner: Runner) -> list[str]:
-    r = runner(["crontab", "-l"])
-    if r.returncode != 0:  # no crontab yet is reported as a non-zero exit
-        return []
+    r = _run(runner, ["crontab", "-l"])
+    if r.returncode != 0:
+        # Only "no crontab for user" means empty. Anything else must not be read as empty,
+        # or the next write would replace the whole crontab with one line.
+        if "no crontab" in (r.stderr or "").lower():
+            return []
+        raise ScheduleError("could not read the crontab: " + (r.stderr or "").strip())
     return (r.stdout or "").splitlines()
 
 
@@ -52,7 +73,7 @@ def _write(runner: Runner, lines: list[str]) -> None:
     with tempfile.NamedTemporaryFile("w", suffix=".cron", delete=False) as f:
         f.write(text)
     try:
-        r = runner(["crontab", f.name])  # the runner has no stdin, so install from a file
+        r = _run(runner, ["crontab", f.name])  # the runner has no stdin, so install from a file
     finally:
         Path(f.name).unlink(missing_ok=True)
     if r.returncode != 0:
@@ -60,7 +81,7 @@ def _write(runner: Runner, lines: list[str]) -> None:
 
 
 def _without(lines: list[str], repo: Path) -> list[str]:
-    tag = MARKER + str(repo)
+    tag = _tag(repo)
     return [ln for ln in lines if not ln.endswith(tag)]
 
 
