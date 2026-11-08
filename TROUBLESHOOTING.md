@@ -81,8 +81,11 @@ The harness refuses to start next to a live session of the same name. Stop it wi
 
 ## `cao launch --headless` errors after 300 seconds
 
-Without `--async`, headless launch polls 300s, then errors while the session keeps running.
-`caokit launch` has the same behaviour when the launch is not headless-async (the session is fine, check it with `caokit status`).
+With `--headless` **and a first message**, `cao launch` waits up to 300s for the General's reply, then errors while the
+session keeps running. Without a message (and for attached launches) it does not wait.
+`caokit launch --headless --prompt-file F` behaves the same; add `--async` to return once the prompt is delivered.
+Check the session with `caokit status`. Measured on 2026-11-08: a headless launch with no prompt returned in 12s and one
+with a one-line prompt in 23s; the 300s error itself was not reproduced.
 
 ## `cao profile validate` warns about `fs_write` or `role: researcher`
 

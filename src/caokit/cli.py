@@ -343,6 +343,7 @@ def cmd_launch(a: argparse.Namespace) -> int:
             prompt=prompt,
             headless=a.headless,
             auto_approve=a.auto_approve,
+            wait=not a.no_wait,
         )
     except (ConfigError, ValueError, OSError) as e:
         print(f"error: {e}", file=sys.stderr)
@@ -607,6 +608,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     lc.add_argument("--prompt-file", metavar="FILE", help="send this file as the first message")
     lc.add_argument("--headless", action="store_true", help="start detached")
     lc.add_argument("--auto-approve", action="store_true", help="skip CAO's launch confirmation")
+    lc.add_argument(
+        "--async",
+        dest="no_wait",
+        action="store_true",
+        help="with --headless and --prompt-file: return once the prompt is delivered "
+        "instead of waiting up to 300s for the reply",
+    )
     lc.set_defaults(fn=cmd_launch)
     st = sub.add_parser("status", help="show sessions and this project's workers")
     st.add_argument("repo", nargs="?", default=".")

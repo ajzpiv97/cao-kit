@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- `status`, `send` and `stop` targeted `cao-cao-<name>` for projects whose session name starts with `cao-`; `stop` reported success while the session kept running.
+- Session names carry a short hash of the project path (two checkouts called `app` no longer share a session).
+- A launch or send message starting with `-` is no longer parsed as a `cao` option; an empty prompt file is an error.
+- `reset` checks the roster and `uv` before moving anything, reports a hung or missing tool as an error naming the backup, installs CAO with a 15 minute timeout, refuses a symlinked or home-level CAO folder, and uses unique backup folders.
+- `tasks schedule --install` no longer treats an unreadable crontab as empty, escapes `%` in paths, always uses an absolute `caokit` path, and saves `--keep-archived-days`.
+- `tasks prune --days` below 1 is rejected; `uninstall` reports an unknown adapter as an error.
+
+### Added
+- `caokit launch --async`.
+
 ## v0.2.0 (2026-11-02): caokit replaces the bash kit
 
 New Python CLI `caokit` (Python >= 3.11, no runtime dependencies, `uv tool install`), replacing hardcoded profile names with roles.

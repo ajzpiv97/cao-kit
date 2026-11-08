@@ -46,6 +46,7 @@ def build_launch_argv(
     prompt: str | None = None,
     headless: bool = False,
     auto_approve: bool = False,
+    wait: bool = True,
 ) -> list[str]:
     """Build the argv that launches a CAO session for ``profile`` in ``project``.
 
@@ -60,6 +61,8 @@ def build_launch_argv(
         prompt: Optional first message for the General.
         headless: Start detached instead of attaching to the terminal.
         auto_approve: Skip CAO's launch confirmation. Never grants extra tool access.
+        wait: With ``headless`` and a prompt, wait up to 300s for the General's reply. False
+            passes ``--async``: return once the prompt is delivered.
 
     Returns:
         The argv list, starting with ``cao launch``. Never includes ``--yolo``.
@@ -77,6 +80,8 @@ def build_launch_argv(
         argv.append("--headless")
     if auto_approve:
         argv.append("--auto-approve")
+    if not wait:
+        argv.append("--async")
     if prompt:
         argv += ["--", prompt]  # "--" so a prompt starting with "-" is not read as an option
     return argv

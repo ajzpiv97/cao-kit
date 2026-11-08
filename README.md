@@ -69,7 +69,7 @@ Change the CAO version only with `uv tool install --force 'cli-agent-orchestrato
 | `caokit uninstall [--project REPO] [--yes]` | Remove a roster's profiles from CAO; a dry run unless `--yes`. Leftover `agent-context` copies are moved to a backup, not deleted |
 | `caokit init REPO [--name P] [--override ROLE=TOOL[:MODEL]] [--force-project]` | Scaffold `.company/` in a git repo; `--name` namespaces its profiles; `--force-project` overwrites an existing project file |
 | `caokit server` | Run `cao-server` (tmux backend) in the foreground |
-| `caokit launch [REPO]` | Start the project's General; `--prompt-file F`, `--headless`, `--auto-approve` |
+| `caokit launch [REPO]` | Start the project's General; `--prompt-file F`, `--headless`, `--auto-approve`, `--async` |
 | `caokit status [REPO]` / `send MESSAGE [--repo REPO] [--timeout S]` / `stop [REPO]` | Show sessions and workers, message the General (waits up to 600 s by default), shut the session down |
 | `caokit tasks [list] [REPO]` | Open tasks and what blocks them (`--all` includes finished ones) |
 | `caokit tasks archive [REPO] [--delete]` | Move `ACCEPTED`, `CANCELLED` and `FAILED` tasks to `.company/tasks/archive/`; `--delete` removes them instead |

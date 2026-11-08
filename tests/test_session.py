@@ -40,6 +40,13 @@ class SessionArgvTests(unittest.TestCase):
         self.assertIn("--auto-approve", argv)
         self.assertNotIn("--yolo", argv)
 
+    def test_async_launch_passes_the_flag_only_when_asked(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertNotIn("--async", build_launch_argv(Path(d), "g", headless=True, prompt="x"))
+            argv = build_launch_argv(Path(d), "g", headless=True, prompt="x", wait=False)
+        self.assertIn("--async", argv)
+        self.assertEqual(argv[-2:], ["--", "x"])
+
     def test_launch_without_prompt_has_no_message(self):
         with tempfile.TemporaryDirectory() as d:
             argv = build_launch_argv(Path(d), "general-claude")
