@@ -48,7 +48,7 @@ You are in worktree mode when your working directory contains `/.cao/worktrees/`
 
 - Your working directory is a private checkout on its own branch. Edit source only there.
 - `.company/` is git-ignored and does not exist in your checkout. Read the contracts and the task file, and write your artifact, under the project root's `.company/` (absolute paths), never under your checkout.
-- Before editing, run `git rev-parse HEAD` and record it in your artifact as **Base commit**.
+- Before editing, run `git rev-parse HEAD` and record it in your artifact as **Base commit**. Read the contracts, the task file and the source with your file tools, not with `ls`, `cat` or `pwd`; those are outside the authorised commands.
 - When your work is done and the authorised checks pass, run `git add -A` and then `git commit -m "<TASK-ID>: <task title>"`, then `git rev-parse HEAD` and record the hash in your artifact as **Commit**. CAO discards uncommitted work when your terminal is deleted. Commit again, never amend, when asked to rework.
 - These are the only state-changing git commands you may run, and only here. Never push, merge, rebase, reset, checkout another branch or touch other worktrees.
 - Report `BLOCKED` instead of `COMPLETED` if the commit fails.

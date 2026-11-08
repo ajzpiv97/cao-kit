@@ -135,6 +135,7 @@ class RoleTextTests(unittest.TestCase):
             "delete_terminal",
             "same engineer terminal",
             "cd <worktree path>",
+            "git rev-parse HEAD",
         ):
             self.assertIn(needle, g)
 
