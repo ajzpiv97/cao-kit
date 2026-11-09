@@ -252,6 +252,10 @@ With it on, the General dispatches each source-changing engineer through CAO's `
 - **You merge**: `git merge cao/<id>`, then `git branch -d cao/<id>`. caokit never merges or deletes branches.
 - A new worktree starts from the last commit, so uncommitted changes in your main checkout are not in it.
 - `.company/` is git-ignored, so agents read and write it at the project root, not in the checkout.
+- **Git-ignored files are not in the checkout** (`node_modules`, `.venv`, `.env`, build caches), and CAO deletes them
+  with it. Have the task's authorised commands start with your install step (`npm ci`, `pnpm install --frozen-lockfile`,
+  `uv sync`); pnpm and uv share a global store, so that is cheap. Do not symlink the main `node_modules` in: parallel
+  engineers would write into one shared tree. CAO has no setup hook, so caokit does not run the install for you yet.
 
 ## More
 
