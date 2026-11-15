@@ -10,7 +10,8 @@
 
 <p align="center">
   <a href="https://github.com/ajzpiv97/cao-kit/actions/workflows/ci.yml"><img src="https://github.com/ajzpiv97/cao-kit/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/></a>
-  <a href="https://github.com/ajzpiv97/cao-kit/tags"><img src="https://img.shields.io/github/v/tag/ajzpiv97/cao-kit?label=version&color=blue" alt="Version"/></a>
+  <a href="https://pypi.org/project/caokit/"><img src="https://img.shields.io/pypi/v/caokit?include_prereleases&color=blue" alt="PyPI"/></a>
+  <a href="https://pepy.tech/project/caokit"><img src="https://img.shields.io/pepy/dt/caokit?color=blue&label=downloads" alt="Downloads"/></a>
   <a href="https://github.com/ajzpiv97/cao-kit/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue" alt="License: MIT"/></a>
   <a href="https://github.com/ajzpiv97/cao-kit/blob/main/pyproject.toml"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+"/></a>
   <img src="https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple" alt="Platform: macOS"/>
@@ -32,7 +33,7 @@ waits for your approval, then delegates to specialist coding-agent CLIs through
 **Get started.** Needs macOS, `tmux`, `uv`, CAO 2.5.4, `claude` and `agy` ([full install](#install)):
 
 ```bash
-uv tool install git+https://github.com/ajzpiv97/cao-kit
+uv tool install --prerelease allow caokit   # 0.3.0 is in pre-release on PyPI
 caokit doctor                  # checks CLIs, auth, CAO version and the server
 caokit company create          # pick a tool and model per role
 caokit install                 # install the profiles into CAO
@@ -65,7 +66,7 @@ brew install tmux uv
 uv tool install 'cli-agent-orchestrator==2.5.4'
 curl -fsSL https://claude.ai/install.sh | bash
 curl -fsSL https://antigravity.google/cli/install.sh | bash
-uv tool install git+https://github.com/ajzpiv97/cao-kit   # or, from a checkout: uv tool install --from . caokit
+uv tool install --prerelease allow caokit                 # from PyPI; 0.3.0 is in pre-release
 caokit doctor                                             # CLIs, auth, CAO version, single CAO install, server, roster
 ```
 
@@ -73,7 +74,9 @@ caokit doctor                                             # CLIs, auth, CAO vers
   no login screen appears inside an orchestrated terminal. `agy models` lists the exact model IDs.
 - Change the CAO version only with `uv tool install --force 'cli-agent-orchestrator==X'`, never
   `uv tool upgrade` or `cao update`.
-- After pulling new changes to a checkout, reinstall with `uv tool install --force --from . caokit`.
+- Other ways to install: the latest commit with `uv tool install git+https://github.com/ajzpiv97/cao-kit`, or
+  from a checkout with `uv tool install --force --from . caokit` (repeat after pulling new changes).
+- Upgrade with `uv tool upgrade --prerelease allow caokit`. Drop `--prerelease allow` once 0.3.0 is final.
 
 ## Quick start
 
