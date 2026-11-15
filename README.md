@@ -1,10 +1,41 @@
-# caokit: a CAO agent company kit
+<h1 align="center">caokit</h1>
 
-A small, local "company" of coding agents. You talk to **one** commanding agent, the *General*
-(Claude Code by default). It drafts task files, waits for your approval, then delegates to
-specialist coding-agent CLIs through [CAO](https://github.com/awslabs/cli-agent-orchestrator)
-(`cli-agent-orchestrator`), using subscriptions you already pay for. Everything is driven by the
-`caokit` command line.
+<p align="center">
+  <b>A small, local "company" of coding agents, run from one command line.</b>
+</p>
+
+<p align="center">
+  <a href="https://github.com/ajzpiv97/cao-kit/actions/workflows/ci.yml"><img src="https://github.com/ajzpiv97/cao-kit/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/></a>
+  <a href="https://github.com/ajzpiv97/cao-kit/tags"><img src="https://img.shields.io/github/v/tag/ajzpiv97/cao-kit?label=version&color=blue" alt="Version"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue" alt="License: MIT"/></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+"/></a>
+  <img src="https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple" alt="Platform: macOS"/>
+  <a href="https://github.com/awslabs/cli-agent-orchestrator"><img src="https://img.shields.io/badge/CAO-2.5.4-FF9900" alt="CAO 2.5.4"/></a>
+</p>
+
+You talk to **one** commanding agent, the *General* (Claude Code by default). It drafts task files,
+waits for your approval, then delegates to specialist coding-agent CLIs through
+[CAO](https://github.com/awslabs/cli-agent-orchestrator) (`cli-agent-orchestrator`).
+
+- **One agent to talk to.** The General takes the goal, writes the task file, dispatches an engineer,
+  a scout and an inspector, and reports back. You approve plans and accept results.
+- **Review comes from a different vendor.** Claude implements and Antigravity inspects Claude's code,
+  re-running the task's validation commands itself. caokit refuses a roster where author and reviewer
+  share a provider unless you opt in.
+- **Your subscriptions, your machine.** It drives the CLIs you already pay for, holds no credentials,
+  and no agent may merge, push or deploy. The human commits.
+
+**Get started.** Needs macOS, `tmux`, `uv`, CAO 2.5.4, `claude` and `agy` ([full install](#install)):
+
+```bash
+uv tool install git+https://github.com/ajzpiv97/cao-kit
+caokit doctor                  # checks CLIs, auth, CAO version and the server
+caokit company create          # pick a tool and model per role
+caokit install                 # install the profiles into CAO
+caokit init /path/to/repo      # scaffold .company/ in your project
+caokit server                  # terminal A: leave running
+caokit launch /path/to/repo    # terminal B: talk to the General
+```
 
 The kit is generic: it assumes no particular project, language or stack. A project brings its
 own validation commands (test/CI command) and its own rules.
@@ -17,6 +48,8 @@ own validation commands (test/CI command) and its own rules.
 [Task workflow](#task-workflow) · [Working with the General](#working-with-the-general) ·
 [Commands](#commands) · [Configuration](#configuration) · [Worktrees](#worktrees-one-per-task) ·
 [Safety model](#safety-model) · [Validation](#validation) · [Developing caokit](#developing-caokit)
+
+---
 
 ## Install
 
@@ -269,6 +302,9 @@ uvx ruff check src tests && uvx ruff format --check src tests   # lint + format 
 uvx mypy                                                          # strict types for src, lenient for tests
 python3 -B -m unittest discover -s tests -t .                    # unit tests (a real-cao test runs if `cao` is installed)
 ```
+
+CI (`.github/workflows/ci.yml`) runs the same four checks on macOS with Python 3.11 and 3.13 for
+every push to `main` and every pull request.
 
 Ruff and mypy both target Python 3.11, the minimum (`requires-python = ">=3.11"`); caokit has no
 runtime dependencies. `uv tool install` fetches a suitable interpreter, so the system Python does

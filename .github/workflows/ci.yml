@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, types and tests (Python ${{ matrix.python }})
+    runs-on: macos-latest   # the only platform caokit supports
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Lint
+        run: uvx ruff check src tests
+      - name: Format
+        run: uvx ruff format --check src tests
+      - name: Types
+        run: uvx mypy
+      - name: Unit tests
+        run: uv run --no-project python -B -m unittest discover -s tests -t .
+        env:
+          PYTHONPATH: src
