@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.svg" width="140" height="140" alt="caokit logo: a general's star above three double-chevron units"/>
+  <img src="https://raw.githubusercontent.com/ajzpiv97/cao-kit/main/docs/logo.svg" width="140" height="140" alt="caokit logo: a general's star above three double-chevron units"/>
 </p>
 
 <h1 align="center">caokit</h1>
@@ -11,8 +11,8 @@
 <p align="center">
   <a href="https://github.com/ajzpiv97/cao-kit/actions/workflows/ci.yml"><img src="https://github.com/ajzpiv97/cao-kit/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"/></a>
   <a href="https://github.com/ajzpiv97/cao-kit/tags"><img src="https://img.shields.io/github/v/tag/ajzpiv97/cao-kit?label=version&color=blue" alt="Version"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue" alt="License: MIT"/></a>
-  <a href="pyproject.toml"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+"/></a>
+  <a href="https://github.com/ajzpiv97/cao-kit/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue" alt="License: MIT"/></a>
+  <a href="https://github.com/ajzpiv97/cao-kit/blob/main/pyproject.toml"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+"/></a>
   <img src="https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple" alt="Platform: macOS"/>
   <a href="https://github.com/awslabs/cli-agent-orchestrator"><img src="https://img.shields.io/badge/CAO-2.5.4-FF9900" alt="CAO 2.5.4"/></a>
 </p>
@@ -333,8 +333,8 @@ The old Codex profile files are in git history.
 
 ## More
 
-[`TROUBLESHOOTING.md`](TROUBLESHOOTING.md), [`SOURCES.md`](SOURCES.md), [`CHANGELOG.md`](CHANGELOG.md).
+[`TROUBLESHOOTING.md`](https://github.com/ajzpiv97/cao-kit/blob/main/TROUBLESHOOTING.md), [`SOURCES.md`](https://github.com/ajzpiv97/cao-kit/blob/main/SOURCES.md), [`CHANGELOG.md`](https://github.com/ajzpiv97/cao-kit/blob/main/CHANGELOG.md).
 
 ## License
 
-MIT, see [`LICENSE`](LICENSE).
+MIT, see [`LICENSE`](https://github.com/ajzpiv97/cao-kit/blob/main/LICENSE).
