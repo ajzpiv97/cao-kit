@@ -10,6 +10,11 @@ Pre-releases (`0.3.0.devN`) are published to PyPI; install one with `uv tool ins
 - Versions are bumped with `bump-my-version` (configured in `pyproject.toml`), which updates both version strings, commits and tags.
 - Logo, badges and a reorganised README.
 
+- Custom roles: `caokit role add|list|remove` defines roles beyond the four built-in ones. A custom role is a role file (`~/.config/caokit/roles/<name>.md`, or `.company/roles/<name>.md` for one project) plus a `[roles.<name>]` binding; it is rendered, validated and installed like the others, and `ROSTER.md` describes it to the General. Built-in roles cannot be replaced, `"*"` in `allowedTools` is refused, and a soft-enforcement tool is flagged.
+
+### Changed
+- A role name that is not built in is no longer a config error by itself; it is a custom role and is rejected by the roster rules if it has no role file.
+
 ### Fixed
 - `caokit launch --headless` exits 1 and says how to answer when the General opens on a menu and the launch prompt is not delivered (`cao` reports this with exit code 0).
 - `caokit send` prints the General's screen when it fails because the General is waiting on an interactive question.

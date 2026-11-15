@@ -24,13 +24,24 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .adapters import ROLES, AdapterError, Runner, default_runner, load_adapter, validate_model
+from .adapters import (
+    ROLE_ID_RE,
+    ROLES,
+    AdapterError,
+    Runner,
+    default_runner,
+    load_adapter,
+    ordered_roles,
+    validate_model,
+)
 from .config import POLICY_KEYS, SCHEMA, Binding, Config, ConfigError, _only
 from .render import validate_project_name
 from .roster import check_roster
 
 # Lives under .company/, which the managed .gitignore block ignores (except contracts/).
 PROJECT_FILE = Path(".company") / "caokit.toml"
+# A project's own custom role files; searched before the user-level roles folder.
+PROJECT_ROLES = Path(".company") / "roles"
 _POLICY_KEYS = POLICY_KEYS
 
 
@@ -85,8 +96,11 @@ def parse_overrides(d: dict[str, Any]) -> Overrides:
             raise ConfigError(f"policy.{k} must be true or false")
     roles: dict[str, dict[str, str]] = {}
     for role, o in d.get("roles", {}).items():
-        if role not in ROLES:
-            raise ConfigError(f"unknown role: roles.{role} (valid: {', '.join(ROLES)})")
+        if role not in ROLES and not ROLE_ID_RE.match(role):
+            raise ConfigError(
+                f"invalid role name: roles.{role} (a custom role uses lowercase letters and "
+                f"digits only; built-in: {', '.join(ROLES)})"
+            )
         _only(o, {"tool", "model"}, f"roles.{role}")
         for k, v in o.items():
             if not isinstance(v, str) or not v:
@@ -155,9 +169,8 @@ def dump_overrides(ov: Overrides) -> str:
     out = [f"schema = {SCHEMA}", "", "[project]", f"name = {q(ov.name)}"]
     if ov.policy:
         out += ["", "[policy]"] + [f"{k} = {str(v).lower()}" for k, v in ov.policy.items()]
-    for role in ROLES:  # fixed order keeps the file stable across runs
-        if role in ov.roles:
-            out += ["", f"[roles.{role}]"] + [f"{k} = {q(v)}" for k, v in ov.roles[role].items()]
+    for role in ordered_roles(ov.roles):  # fixed order keeps the file stable across runs
+        out += ["", f"[roles.{role}]"] + [f"{k} = {q(v)}" for k, v in ov.roles[role].items()]
     tasks = []
     if ov.keep_archived_days is not None:
         tasks.append(f"keep_archived_days = {ov.keep_archived_days}")
@@ -168,23 +181,36 @@ def dump_overrides(ov: Overrides) -> str:
     return "\n".join(out) + "\n"
 
 
-def apply_overrides(base: Config, ov: Overrides) -> Config:
+def apply_overrides(base: Config, ov: Overrides, repo: Path | None = None) -> Config:
     """Layer a project's overrides on the user-level config.
 
     Merge rules, per role: a given ``tool``/``model`` replaces the base value. If the
     tool changes and no model is given, the base model is dropped (a model ID from one
     tool is meaningless for another), so the tool default applies until one is set.
+    A custom role may exist only in the project; it then needs a ``tool``.
 
     Args:
         base: The user-level configuration.
         ov: The project's overrides.
+        repo: Project root. Its ``.company/roles`` folder is searched for custom role files
+            before the user-level one.
 
     Returns:
         A new config named for the project; ``base`` is not modified.
+
+    Raises:
+        ConfigError: A role the user-level config does not bind is given without a tool.
     """
     roles = {r: Binding(b.tool, b.model) for r, b in base.roles.items()}
     for role, o in ov.roles.items():
-        b = base.roles[role]
+        b = base.roles.get(role)
+        if b is None:
+            if "tool" not in o:
+                raise ConfigError(
+                    f"roles.{role}: no tool; the user-level config does not bind this role"
+                )
+            roles[role] = Binding(o["tool"], o.get("model"))
+            continue
         tool = o.get("tool", b.tool)
         if "model" in o:
             model: str | None = o["model"]
@@ -194,7 +220,8 @@ def apply_overrides(base: Config, ov: Overrides) -> Config:
             model = b.model
         roles[role] = Binding(tool, model)
     return Config(
-        roles=roles,
+        roles={r: roles[r] for r in ordered_roles(roles)},
+        role_dirs=((Path(repo) / PROJECT_ROLES,) if repo else ()) + tuple(base.role_dirs),
         allow_soft_engineer=ov.policy.get("allow_soft_engineer", base.allow_soft_engineer),
         allow_soft_general=ov.policy.get("allow_soft_general", base.allow_soft_general),
         allow_single_provider=ov.policy.get("allow_single_provider", base.allow_single_provider),
@@ -221,10 +248,10 @@ def parse_override_specs(specs: Sequence[str]) -> dict[str, dict[str, str]]:
     out: dict[str, dict[str, str]] = {}
     for spec in specs:
         role, sep, rest = spec.partition("=")
-        if not sep or role not in ROLES or not rest:
+        if not sep or not ROLE_ID_RE.match(role) or not rest:
             raise ConfigError(
                 f"bad --override {spec!r}: use role=tool[:model] or role=:model "
-                f"(roles: {', '.join(ROLES)})"
+                f"(built-in roles: {', '.join(ROLES)}; custom roles by their name)"
             )
         tool, _, model = rest.partition(":")
         entry: dict[str, str] = {}
@@ -266,9 +293,9 @@ def resolve_project(
         except ValueError as e:
             raise ConfigError(str(e)) from e
         ov = Overrides(name=name, roles=parse_override_specs(specs))
-        return apply_overrides(base, ov), ov
+        return apply_overrides(base, ov, repo), ov
     if (Path(repo) / PROJECT_FILE).is_file():
-        return apply_overrides(base, load_overrides(repo)), None
+        return apply_overrides(base, load_overrides(repo), repo), None
     return base, None
 
 
@@ -285,7 +312,7 @@ def effective_config(repo: Path, base: Config) -> Config:
     Raises:
         ConfigError: The project file is missing or invalid.
     """
-    return apply_overrides(base, load_overrides(repo))
+    return apply_overrides(base, load_overrides(repo), repo)
 
 
 def check_effective(

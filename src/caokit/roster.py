@@ -2,8 +2,9 @@
 
 from dataclasses import dataclass, field
 
-from .adapters import Adapter, AdapterError, load_adapter, vendor_of
+from .adapters import ROLES, Adapter, AdapterError, load_adapter, vendor_of
 from .config import Config
+from .render import check_role_text, load_role
 
 
 @dataclass
@@ -25,7 +26,8 @@ def check_roster(cfg: Config) -> Result:
     Rules: tools must exist and not be parked; a tool must be allowed to fill
     the role; a soft-enforcement engineer or General needs an explicit opt-in; the
     inspector must be independent of the engineer (different tool and model
-    vendor); a single-provider setup is flagged.
+    vendor); a single-provider setup is flagged. A custom role must have a usable
+    role file, and on a soft-enforcement tool its limits are flagged as advisory.
 
     Args:
         cfg: The configuration to check.
@@ -45,7 +47,9 @@ def check_roster(cfg: Config) -> Result:
         if a.status == "parked":
             res.errors.append(f"roles.{role}: tool {b.tool!r} is parked and cannot be selected")
             continue  # no point checking capabilities of an unselectable tool
-        if not a.roles[role].can_fill:
+        if role not in ROLES:
+            _check_custom_role(cfg, role, a, res)
+        if not a.cap(role).can_fill:
             res.errors.append(f"roles.{role}: tool {b.tool!r} cannot fill the {role} role")
         # Soft enforcement means CAO cannot deny tools. The engineer has write + shell, and the
         # General is meant to have neither, so both need an explicit opt-in.
@@ -68,6 +72,22 @@ def check_roster(cfg: Config) -> Result:
             "single provider in use: independent cross-provider review is not possible"
         )
     return res
+
+
+def _check_custom_role(cfg: Config, role: str, adapter: Adapter, res: Result) -> None:
+    """Check a custom role's file, and flag advisory limits on a soft-enforcement tool."""
+    try:
+        errors, warnings = check_role_text(load_role(role, cfg.role_dirs))
+    except ValueError as e:
+        res.errors.append(f"roles.{role}: {e}")
+        return
+    res.errors += [f"roles.{role}: {e}" for e in errors]
+    res.warnings += [f"roles.{role}: {w}" for w in warnings]
+    if adapter.enforcement == "soft":
+        res.warnings.append(
+            f"custom role {role} uses {adapter.id!r}: the tool limits in its role file are "
+            "advisory only"
+        )
 
 
 def _check_cross_provider(cfg: Config, adapters: dict[str, Adapter], res: Result) -> None:

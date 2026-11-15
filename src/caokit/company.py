@@ -71,13 +71,12 @@ def create_company(
         raise CompanyError("\n".join(errors))  # cannot check a partial roster
     r = check_roster(cfg)
     errors += r.errors
-    for role in ROLES:
-        b = cfg.roles[role]
+    for role, b in cfg.roles.items():
         try:
             a = load_adapter(b.tool)
         except AdapterError:
             continue  # already reported by check_roster as an unknown tool
-        rec = a.roles[role].recommended_model
+        rec = a.cap(role).recommended_model
         if b.model:
             e, w = validate_model(a, b.model, runner)
             errors += [f"roles.{role}: {x}" for x in e]

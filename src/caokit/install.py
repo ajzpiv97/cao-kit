@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .adapters import ROLES, ProcessResult, Runner, default_runner, load_adapter
+from .adapters import ProcessResult, Runner, default_runner, load_adapter
 from .config import Config
 from .render import profile_name, render_profile
 from .roster import check_roster
@@ -60,10 +60,9 @@ def render_all(cfg: Config) -> dict[str, str]:
         ``<role>-<tool>``, or ``<project>_<role>-<tool>`` for a project-scoped config.
     """
     out = {}
-    for role in ROLES:
-        b = cfg.roles[role]
+    for role, b in cfg.roles.items():
         name = profile_name(role, b.tool, cfg.project)
-        out[name] = render_profile(role, load_adapter(b.tool), b.model, cfg.project)
+        out[name] = render_profile(role, load_adapter(b.tool), b.model, cfg.project, cfg.role_dirs)
     return out
 
 

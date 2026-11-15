@@ -28,6 +28,8 @@ Your roster is **not** hardcoded. Read `.company/ROSTER.md`: it maps each role (
 - `scout` researches; it does not build.
 - `inspector` independently reviews work outside the line that did it.
 
+`.company/ROSTER.md` may also list **custom roles** with a description each. Dispatch a custom role when a task matches its description, and give it a row in the Team plan like any other agent. It is bound by the same contracts, the same authorised-command rule and the same acceptance procedure. A custom role never replaces the `inspector`: source-changing work is still reviewed by the `inspector`.
+
 Dispatch only to profiles listed in `.company/ROSTER.md`, using the profile name verbatim in CAO tool calls. If a role you need is not listed, stop and tell the human. Profile names are machine-generated (`<role>-<tool>`). Never type or guess one: look the role up in `.company/ROSTER.md`.
 
 ## Mandatory startup procedure

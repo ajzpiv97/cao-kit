@@ -120,6 +120,35 @@ Any role can be bound to any active tool (`caokit company create`). A soft-enfor
 `engineer` or `general` needs an explicit opt-in (see [Policy](#policy)) because nothing then stops
 it writing anywhere. Codex is parked (see [Parked: Codex](#parked-codex)).
 
+### Custom roles
+
+The four roles above are built in. Add your own when a job needs a different brief or different
+limits, for example an adversarial reviewer, a migration planner or a cheap transcriber:
+
+```bash
+caokit role add auditor claude:haiku              # user level: writes ~/.config/caokit/roles/auditor.md
+caokit role add auditor claude:haiku --project ~/proj-a   # this project only: .company/roles/auditor.md
+caokit role add auditor claude --from my-role.md  # start from your own file instead of the template
+caokit role list
+caokit role remove auditor                        # unbinds it; the role file is kept
+```
+
+`role add` writes a starter role file, binds the role in `caokit.toml` and checks the roster. Then
+edit the file, run `caokit install` and relaunch.
+
+- **A custom role is a role file plus a binding.** The file has the same format as the built-in ones:
+  CAO frontmatter (`description`, `role`, `allowedTools`, `mcpServers`) and the instructions. The
+  binding is a `[roles.<name>]` table with `tool` and optional `model`.
+- **The General picks it by its description.** `ROSTER.md` lists each custom role with its
+  `description`, so write that line as "when to use this role".
+- **Limits come from the role file.** `allowedTools` is enforced natively on Claude and is advisory
+  on Antigravity, which `role add` warns about. `"*"` is refused.
+- **Built-in roles cannot be replaced.** A file named `general.md` or `engineer.md` is ignored, and
+  a custom role never stands in for the inspector: source changes are still reviewed by it.
+- **Names** are lowercase letters and digits. A project's role file wins over a user-level one with
+  the same name, and a project can rebind a user-level role with `--override auditor=:sonnet`.
+- A project's `.company/roles/` is git-ignored like the rest of `.company/` except `contracts/`.
+
 Keep `fs_write` in the General's profile. CAO's validator warns that it is "not recognised", but
 that is a gap in its own vocabulary check, and removing it would block the General's `.company/`
 writes.
@@ -173,6 +202,7 @@ Destructive commands (`uninstall`, `tasks prune`, `reset`) are dry runs unless y
 | `caokit install [--project REPO]` | Render, validate, install and byte-verify profiles; `--replace-legacy` / `--remove-legacy` for old copies |
 | `caokit uninstall [--project REPO] [--yes]` | Remove a roster's profiles from CAO. Leftover `agent-context` copies are moved to a backup, not deleted |
 | `caokit init REPO [--name P] [--override ROLE=TOOL[:MODEL]] [--force-project]` | Scaffold `.company/` in a git repo; `--name` namespaces its profiles; `--force-project` overwrites an existing project file |
+| `caokit role list\|add\|remove [NAME] [TOOL[:MODEL]] [--project REPO] [--from FILE]` | Manage [custom roles](#custom-roles) beyond the four built-in ones |
 | `caokit reset [--yes]` | Back up CAO's state, reinstall CAO 2.5.4 and the profiles |
 
 **Running a session**

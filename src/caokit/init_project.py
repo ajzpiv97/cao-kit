@@ -6,11 +6,11 @@ from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .adapters import ROLES, Runner, default_runner, load_adapter
+from .adapters import Runner, default_runner, load_adapter
 from .config import Config
 from .gitignore import BEGIN, merge_gitignore
 from .project import PROJECT_FILE, Overrides, dump_overrides
-from .render import profile_name
+from .render import load_role, profile_name, role_description
 from .stack import Suggestion, suggest_validation
 
 if TYPE_CHECKING:  # typing-only: importlib.abc.Traversable is not importable at runtime on 3.14+
@@ -46,8 +46,7 @@ def render_roster_md(cfg: Config, suggestion: Suggestion | None) -> str:
         The Markdown text, ending in a newline.
     """
     rows = []
-    for role in ROLES:
-        b = cfg.roles[role]
+    for role, b in cfg.roles.items():
         a = load_adapter(b.tool)
         model = b.model or "(tool default)"
         rows.append(
@@ -71,6 +70,7 @@ def render_roster_md(cfg: Config, suggestion: Suggestion | None) -> str:
         "",
         "`soft` enforcement means the tool's limits are advisory only.",
         "",
+        *_custom_roles_md(cfg),
         "## Suggested validation command (unconfirmed)",
         "",
     ]
@@ -91,6 +91,39 @@ def render_roster_md(cfg: Config, suggestion: Suggestion | None) -> str:
             "never treat it as authorised until then.",
         ]
     return "\n".join(lines) + "\n"
+
+
+def _custom_roles_md(cfg: Config) -> list[str]:
+    """Describe the custom roles so the General knows when to dispatch each; empty if none."""
+    custom = cfg.custom_roles()
+    if not custom:
+        return []
+    lines = [
+        "## Custom roles",
+        "",
+        "Roles this company added beyond `engineer`, `scout` and `inspector`. Dispatch one "
+        "when a task matches its description; the same contracts apply to it.",
+        "",
+    ]
+    for role in custom:
+        try:
+            desc = role_description(load_role(role, cfg.role_dirs))
+        except ValueError:
+            desc = ""
+        lines.append(f"- `{role}`: {desc or '(no description)'}")
+    return [*lines, ""]
+
+
+def write_roster(repo: Path, cfg: Config, runner: Runner = default_runner) -> Path:
+    """Rewrite ``<repo>/.company/ROSTER.md`` from ``cfg``; it is generated output.
+
+    Returns:
+        The path written.
+    """
+    path = Path(repo) / ".company" / "ROSTER.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_roster_md(cfg, suggest_validation(repo, runner=runner)), "utf-8")
+    return path
 
 
 def _walk(node: "Traversable", rel: str = "") -> Iterator[tuple[str, "Traversable"]]:

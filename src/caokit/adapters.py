@@ -8,13 +8,22 @@ how to validate model IDs, and which roles it may fill.
 import re
 import subprocess
 import tomllib
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from importlib import resources
 from typing import Any, Protocol
 
-# The four roles of the chain of command. Order is the display/render order.
+# The four built-in roles of the chain of command. Order is the display/render order.
+# A config may bind further custom roles; ``Config.roles`` is the full list for a company.
 ROLES = ("general", "engineer", "scout", "inspector")
+# Role IDs are lowercase alphanumerics only, so "-" and "_" stay unambiguous in profile names.
+ROLE_ID_RE = re.compile(r"^[a-z0-9]+$")
+
+
+def ordered_roles(names: Iterable[str]) -> list[str]:
+    """Return role names in display order: built-ins first, then custom roles by name."""
+    names = set(names)
+    return [r for r in ROLES if r in names] + sorted(names - set(ROLES))
 
 
 class AdapterError(Exception):
@@ -112,6 +121,14 @@ class Adapter:
     frontmatter: dict[str, str]  # fixed extra frontmatter fields for this tool
     roles: dict[str, RoleCap]
     notes: str = ""  # appended to every rendered profile as "Tool notes"
+
+    def cap(self, role: str) -> RoleCap:
+        """Return what this tool can do for ``role``.
+
+        Built-in roles are listed per adapter. A custom role is not, and any tool may fill
+        it: what it is allowed to do comes from its own role file.
+        """
+        return self.roles.get(role) or RoleCap(can_fill=True, recommended_model=None)
 
 
 def adapter_ids() -> list[str]:

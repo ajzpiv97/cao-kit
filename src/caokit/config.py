@@ -4,11 +4,11 @@ import json
 import os
 import tomllib
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .adapters import ROLES
+from .adapters import ROLE_ID_RE, ROLES, ordered_roles
 from .render import validate_project_name
 
 SCHEMA = 1
@@ -38,13 +38,14 @@ class Config:
     """The whole company: one binding per role plus policy switches.
 
     Attributes:
-        roles: Binding for each of the four roles.
+        roles: Binding for each role: the four built-in ones, then any custom roles.
         allow_soft_engineer: Lets a soft-enforcement tool be the engineer.
         allow_soft_general: Lets a soft-enforcement tool be the General.
         allow_single_provider: Downgrades the cross-provider rule to a warning.
         expected_cao_version: CAO version the kit expects; doctor warns otherwise.
         project: Project slug when this is a project-scoped (effective) config; its
             profiles are named ``<project>_<role>-<tool>``. None for the user-level config.
+        role_dirs: Folders searched, in order, for a custom role's ``<role>.md``.
     """
 
     roles: dict[str, Binding]
@@ -53,6 +54,12 @@ class Config:
     allow_single_provider: bool = False  # downgrades the cross-provider rule to a warning
     expected_cao_version: str = CAO_VERSION
     project: str | None = None
+    # Where the files are, not what the company is: two configs differing only here are equal.
+    role_dirs: tuple[Path, ...] = field(default=(), compare=False)
+
+    def custom_roles(self) -> list[str]:
+        """Return the roles bound beyond the four built-in ones, by name."""
+        return [r for r in self.roles if r not in ROLES]
 
 
 def default_path() -> Path:
@@ -112,10 +119,13 @@ def parse_config(d: dict[str, Any]) -> Config:
     _only(pol, set(POLICY_KEYS), "policy")
     raw = d.get("roles", {})
     for r in raw:
-        if r not in ROLES:
-            raise ConfigError(f"unknown role: roles.{r} (valid: {', '.join(ROLES)})")
+        if r not in ROLES and not ROLE_ID_RE.match(r):
+            raise ConfigError(
+                f"invalid role name: roles.{r} (a custom role uses lowercase letters and "
+                f"digits only; built-in: {', '.join(ROLES)})"
+            )
     roles: dict[str, Binding] = {}
-    for r in ROLES:
+    for r in ordered_roles({*ROLES, *raw}):
         if r not in raw:
             raise ConfigError(f"missing role: roles.{r}")
         b = raw[r]
@@ -155,9 +165,16 @@ def load_config(path: Path | None = None) -> Config:
     if not path.is_file():
         raise ConfigError(f"config not found: {path} (run `caokit company create`)")
     try:
-        return parse_config(tomllib.loads(path.read_text(encoding="utf-8")))
+        cfg = parse_config(tomllib.loads(path.read_text(encoding="utf-8")))
     except ValueError as e:  # TOMLDecodeError subclasses ValueError
         raise ConfigError(f"invalid TOML in {path}: {e}") from e
+    cfg.role_dirs = (roles_dir(path),)
+    return cfg
+
+
+def roles_dir(config_path: Path | None = None) -> Path:
+    """Return the folder holding user-level custom role files, next to ``caokit.toml``."""
+    return (Path(config_path) if config_path else default_path()).parent / "roles"
 
 
 def dump_config(c: Config) -> str:
@@ -183,7 +200,7 @@ def dump_config(c: Config) -> str:
     ]
     if c.project:
         out[2:2] = ["[project]", f"name = {q(c.project)}", ""]
-    for r in ROLES:
+    for r in ordered_roles(c.roles):
         b = c.roles[r]
         out += ["", f"[roles.{r}]", f"tool = {q(b.tool)}"]
         if b.model:  # omit entirely when unset so the tool default applies

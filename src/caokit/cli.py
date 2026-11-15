@@ -42,6 +42,7 @@ from .project import (
 )
 from .render import profile_name
 from .reset import ResetError, plan, run_reset
+from .roles import RoleError, add_role, list_roles, remove_role
 from .roster import check_roster
 from .tasks import (
     TaskError,
@@ -83,7 +84,7 @@ def _interactive_bindings() -> dict[str, Binding]:
         default_tool = "claude" if role in ("general", "engineer") else "antigravity"
         tool = _ask(f"{role} tool", default_tool)
         try:
-            rec = load_adapter(tool).roles[role].recommended_model or "none"
+            rec = load_adapter(tool).cap(role).recommended_model or "none"
         except AdapterError:
             rec = "none"  # unknown tool: roster validation will report it with a clear error
         model = _ask(f"{role} model (or 'none' for the tool default)", rec)
@@ -511,6 +512,60 @@ def cmd_reset(a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_role(a: argparse.Namespace) -> int:
+    """Run ``caokit role list|add|remove``: manage roles beyond the four built-in ones.
+
+    Args:
+        a: Parsed arguments (``action``, ``name``, ``binding``, ``project``, ``source``,
+            ``config``).
+
+    Returns:
+        0 on success, 1 if the role, config or roster is invalid, 2 on a usage error.
+    """
+    repo = Path(a.project).resolve() if a.project else None
+    scope = f" --project {repo}" if repo else ""
+    try:
+        if a.action == "list":
+            base = load_config(a.config)
+            cfg = effective_config(repo, base) if repo else base
+            for r in list_roles(cfg):
+                kind = "built-in" if r.builtin else "custom"
+                bound = "not bound (add it with `caokit role add`)"
+                if r.binding:
+                    bound = f"{r.binding.tool}:{r.binding.model or '(tool default)'}"
+                print(f"{r.name:<12} {kind:<9} {bound}")
+                if not r.builtin:
+                    print(f"{'':<12} {r.file or 'role file missing'}")
+            return 0
+        if not a.name:
+            print(f"error: `caokit role {a.action}` needs a role name", file=sys.stderr)
+            return 2
+        if a.action == "remove":
+            path = remove_role(a.name, a.config, repo)
+            print(f"Removed role {a.name} from {path}. Its role file was kept.")
+            print(f"Next: caokit install{scope}   # then uninstall the old profile if unused")
+            return 0
+        if not a.binding:
+            print("error: `caokit role add NAME TOOL[:MODEL]` needs a tool", file=sys.stderr)
+            return 2
+        res = add_role(a.name, parse_binding(a.binding), a.config, repo, a.source)
+    except (ConfigError, RoleError, CompanyError) as e:
+        print("error: " + str(e).replace("\n", "\n       "), file=sys.stderr)
+        return 1
+    for w in res.warnings:
+        print("WARNING: " + w)
+    made = "Created" if res.created else "Using existing"
+    print(f"{made} role file {res.role_file}")
+    print(f"Bound role {a.name} in {res.config_file}")
+    print("Next:")
+    if res.created:
+        print(f"  edit {res.role_file}   # say what the role does and what it may touch")
+    print(f"  caokit install{scope}")
+    if not repo:
+        print("  caokit init <repo>   # refreshes ROSTER.md in each project that should use it")
+    return 0
+
+
 def cmd_worktrees(a: argparse.Namespace) -> int:
     """Run ``caokit worktrees [repo]``: show the branches and checkouts CAO made for tasks.
 
@@ -701,6 +756,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--force-project", action="store_true", help="overwrite an existing .company/caokit.toml"
     )
     ini.set_defaults(fn=cmd_init)
+    ro = sub.add_parser("role", help="list, add or remove custom roles")
+    ro.add_argument("action", choices=["list", "add", "remove"])
+    ro.add_argument("name", nargs="?", help="custom role name: lowercase letters and digits")
+    ro.add_argument("binding", nargs="?", metavar="TOOL[:MODEL]", help="add: what fills the role")
+    ro.add_argument("--project", metavar="REPO", help="act on this project, not the user level")
+    ro.add_argument("--from", dest="source", metavar="FILE", help="add: copy this role file")
+    ro.set_defaults(fn=cmd_role)
     tk = sub.add_parser("tasks", help="list open tasks and blockers, or archive finished ones")
     tk.add_argument(
         "action",

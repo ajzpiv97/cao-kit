@@ -62,10 +62,16 @@ class ConfigTests(unittest.TestCase):
         c = cfg(general__model=None)
         self.assertIsNone(c.roles["general"].model)
 
-    def test_unknown_role(self):
-        d = {**GOOD, "roles": {**GOOD["roles"], "colonel": {"tool": "claude"}}}
-        with self.assertRaisesRegex(ConfigError, "roles.colonel"):
+    def test_malformed_role_name(self):
+        d = {**GOOD, "roles": {**GOOD["roles"], "Bad-Role": {"tool": "claude"}}}
+        with self.assertRaisesRegex(ConfigError, "roles.Bad-Role"):
             parse_config(d)
+
+    def test_role_without_a_role_file_is_rejected_by_the_roster_rules(self):
+        # A well-formed extra name is a custom role; what stops a typo is its missing file.
+        d = {**GOOD, "roles": {**GOOD["roles"], "colonel": {"tool": "claude"}}}
+        errors = check_roster(parse_config(d)).errors
+        self.assertTrue(any("roles.colonel" in e and "no role file" in e for e in errors), errors)
 
     def test_missing_role(self):
         d = {**GOOD, "roles": {k: v for k, v in GOOD["roles"].items() if k != "scout"}}

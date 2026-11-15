@@ -95,7 +95,7 @@ class OverridesTests(unittest.TestCase):
             ({"schema": 2, "project": {"name": "a"}}, "schema"),
             ({"schema": 1}, "project.name"),
             ({"schema": 1, "project": {"name": "Bad"}}, "invalid project name"),
-            ({**base, "roles": {"colonel": {"tool": "claude"}}}, "unknown role"),
+            ({**base, "roles": {"Bad-Role": {"tool": "claude"}}}, "invalid role name"),
             ({**base, "roles": {"engineer": {"modle": "x"}}}, "roles.engineer.modle"),
             ({**base, "roles": {"engineer": {"model": ""}}}, "non-empty"),
             ({**base, "policy": {"allow_soft_engineer": "yes"}}, "true or false"),
@@ -139,7 +139,7 @@ class OverridesTests(unittest.TestCase):
         )
 
     def test_bad_specs(self):
-        for bad in ("engineer", "colonel=claude", "engineer=", "=claude"):
+        for bad in ("engineer", "Bad-Role=claude", "engineer=", "=claude"):
             with self.assertRaises(ConfigError, msg=bad):
                 parse_override_specs([bad])
 
