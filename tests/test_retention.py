@@ -76,10 +76,10 @@ class RetentionTests(unittest.TestCase):
         for bad in (0, -3):
             with self.assertRaises(ConfigError):
                 set_keep_archived_days(self.repo, bad)
-        for bad in ("7", 1.5, True):
+        for wrong in ("7", 1.5, True):
             with self.assertRaises(ConfigError):
                 parse_overrides(
-                    {"schema": 1, "project": {"name": "a"}, "tasks": {"keep_archived_days": bad}}
+                    {"schema": 1, "project": {"name": "a"}, "tasks": {"keep_archived_days": wrong}}
                 )
         ov = load_overrides(self.repo)
         self.assertEqual(parse_overrides(__import__("tomllib").loads(dump_overrides(ov))), ov)

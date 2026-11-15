@@ -52,7 +52,7 @@ class ResetTests(unittest.TestCase):
         )
 
     def test_moves_state_backs_up_config_and_keeps_other_servers(self):
-        calls = []
+        calls: list[list[str]] = []
         res = run_reset("2.5.4", self.home, self.mcp, self.root, make_runner(calls))
         self.assertFalse(self.home.exists())
         self.assertTrue((res.backup / "cli-agent-orchestrator" / "agent-store" / "x.md").exists())
@@ -90,7 +90,7 @@ class ResetTests(unittest.TestCase):
             run_reset("2.5.4", self.home, self.mcp, self.root, runner)
 
     def test_install_uses_the_slow_runner(self):
-        slow_calls = []
+        slow_calls: list[list[str]] = []
         run_reset(
             "2.5.4",
             self.home,
@@ -198,14 +198,14 @@ class UninstallTests(unittest.TestCase):
 
     def test_dry_run_runs_nothing(self):
         self.install("pj_general-claude")
-        calls = []
+        calls: list[list[str]] = []
         res = uninstall_profiles(self.cfg, self.home, make_runner(calls))
         self.assertEqual(res.removed, ["pj_general-claude"])
         self.assertEqual(calls, [])
 
     def test_removes_only_this_projects_installed_profiles(self):
         self.install("pj_general-claude", "pj_engineer-claude", "other_general-claude")
-        calls = []
+        calls: list[list[str]] = []
         res = uninstall_profiles(self.cfg, self.home, make_runner(calls), apply=True)
         self.assertEqual(res.removed, ["pj_general-claude", "pj_engineer-claude"])
         self.assertEqual(len(res.missing), 2)
@@ -222,7 +222,7 @@ class UninstallTests(unittest.TestCase):
     def test_context_only_leftover_is_cleaned_without_calling_cao(self):
         (self.home / "agent-context").mkdir()
         (self.home / "agent-context" / "pj_general-claude.md").write_text("x")
-        calls = []
+        calls: list[list[str]] = []
         res = uninstall_profiles(self.cfg, self.home, make_runner(calls), apply=True)
         self.assertEqual((res.removed, calls), (["pj_general-claude"], []))
 
