@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.svg" width="140" height="140" alt="caokit logo: a general's star above three double-chevron units"/>
+</p>
+
 <h1 align="center">caokit</h1>
 
 <p align="center">

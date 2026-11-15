@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="caokit logo: a general's star above three double-chevron units">
+  <rect width="512" height="512" rx="104" fill="#0E2240"/>
+  <g fill="#D4A93A">
+    <polygon points="256.0,84.0 264.5,110.3 292.1,110.3 269.8,126.5 278.3,152.7 256.0,136.5 233.7,152.7 242.2,126.5 219.9,110.3 247.5,110.3"/>
+    <polygon points="186,234 256,188 326,234 326,260 256,214 186,260"/>
+    <polygon points="186,274 256,228 326,274 326,300 256,254 186,300"/>
+    <polygon points="86,364 156,318 226,364 226,390 156,344 86,390"/>
+    <polygon points="86,404 156,358 226,404 226,430 156,384 86,430"/>
+    <polygon points="286,364 356,318 426,364 426,390 356,344 286,390"/>
+    <polygon points="286,404 356,358 426,404 426,430 356,384 286,430"/>
+  </g>
+</svg>
