@@ -98,9 +98,15 @@ class SessionCliTests(unittest.TestCase):
 
     def run_cli(self, *argv):
         err = io.StringIO()
-        with mock.patch("caokit.cli._run", return_value=0) as run, contextlib.redirect_stderr(err):
+        with (
+            mock.patch("caokit.cli._run", return_value=0) as run,
+            mock.patch("caokit.cli._run_tee", return_value=(0, "")) as tee,  # headless launches
+            mock.patch("caokit.cli._capture", return_value=(0, "")),
+            contextlib.redirect_stderr(err),
+        ):
             code = cli.main(["--config", str(self.cfg), *argv])
-        return code, [c.args[0] for c in run.call_args_list], err.getvalue()
+        calls = run.call_args_list + tee.call_args_list
+        return code, [c.args[0] for c in calls], err.getvalue()
 
     def test_launch_uses_project_profile_and_session(self):
         prompt = self.root / "p.md"
@@ -129,6 +135,58 @@ class SessionCliTests(unittest.TestCase):
     def test_status_runs_list_then_workers(self):
         _, calls, _ = self.run_cli("status", str(self.repo))
         self.assertEqual([c[2] for c in calls], ["list", "status"])
+
+    def test_headless_launch_whose_prompt_was_not_delivered_fails_and_says_how_to_answer(self):
+        # Seen live: Claude Code showed a startup menu, cao printed this and the General sat idle.
+        prompt = self.root / "p.md"
+        prompt.write_text("do the thing")
+        undelivered = (
+            "Session created: cao-pj\n"
+            "Error: Initial message was not delivered to terminal c75cf34b (waiting_user_answer)\n"
+        )
+        err = io.StringIO()
+        with (
+            mock.patch("caokit.cli._run", return_value=0),  # never start a real session
+            mock.patch("caokit.cli._run_tee", return_value=(0, undelivered)),
+            contextlib.redirect_stderr(err),
+        ):
+            code = cli.main(
+                ["--config", str(self.cfg), "launch", str(self.repo), "--headless"]
+                + ["--prompt-file", str(prompt)]
+            )
+        self.assertEqual(code, 1)
+        self.assertIn("tmux attach -t cao-pj", err.getvalue())
+        self.assertIn("caokit send", err.getvalue())
+
+    def test_failed_send_while_the_general_asks_a_question_shows_the_question(self):
+        # Seen live: the General asked through a menu; send timed out without showing it.
+        status = "Terminal: c75cf34b\nStatus:   waiting_user_answer\n"
+        pane = "what form does `rate` take?\n> 1. Fraction\n  2. Percent\n"
+
+        def capture(argv):
+            return (0, status) if argv[0] == "cao" else (0, pane)
+
+        err = io.StringIO()
+        with (
+            mock.patch("caokit.cli._run", return_value=1),
+            mock.patch("caokit.cli._capture", side_effect=capture) as cap,
+            contextlib.redirect_stderr(err),
+        ):
+            code = cli.main(["--config", str(self.cfg), "send", "hello", "--repo", str(self.repo)])
+        self.assertEqual(code, 1)
+        self.assertIn("1. Fraction", err.getvalue())
+        self.assertIn("tmux attach -t cao-pj", err.getvalue())
+        self.assertEqual(cap.call_args_list[0].args[0], ["cao", "session", "status", "cao-pj"])
+
+    def test_failed_send_without_a_pending_question_adds_nothing(self):
+        err = io.StringIO()
+        with (
+            mock.patch("caokit.cli._run", return_value=1),
+            mock.patch("caokit.cli._capture", return_value=(0, "Status:   processing\n")),
+            contextlib.redirect_stderr(err),
+        ):
+            code = cli.main(["--config", str(self.cfg), "send", "hello", "--repo", str(self.repo)])
+        self.assertEqual((code, err.getvalue()), (1, ""))
 
     def test_missing_prompt_file_is_an_error_not_a_launch(self):
         code, calls, err = self.run_cli("launch", str(self.repo), "--prompt-file", "/nope.md")

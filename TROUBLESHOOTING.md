@@ -151,6 +151,26 @@ claude --version
 
 The Claude roles (`general`, `engineer`) set `permissionMode: auto` so CAO uses a permission mode rather than unconditional permission bypass.
 
+## The General shows a menu and `caokit send` or a headless launch gets nowhere
+
+Seen live on 2026-11-15 (caokit 0.3.0.dev0, Claude Code 2.1.316):
+
+- **At startup.** Claude Code opened on "Claude in Chrome extension detected ... Yes / No". `cao launch`
+  printed `Error: Initial message was not delivered ... (waiting_user_answer)` and exited 0, with the General idle.
+  `caokit launch --headless` now reports this as an error and exits 1.
+- **Mid-task.** The General asked the human a question through a selection menu. `caokit send` cannot answer a menu,
+  so it timed out. It now prints the General's screen with the question when that happens.
+
+In both cases answer in the General's own terminal, then carry on:
+
+```bash
+tmux attach -t cao-<project>      # answer the menu; detach with Ctrl-b d
+caokit send "<your message>"      # or resend the launch prompt
+```
+
+`caokit status` can keep showing `waiting_user_answer` for a short while after you answer.
+To stop the startup menu for good, turn browser tools off in Claude Code (`/chrome`).
+
 ## A provider command works in Terminal but not under CAO
 
 This is usually a `PATH` mismatch. Check all resolved paths in the same shell that starts `cao-server`:

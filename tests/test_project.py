@@ -314,8 +314,9 @@ class CliProjectTests(unittest.TestCase):
                 )
         self.assertEqual(code, 0, err)
         self.assertIn("caokit install --project", out)
-        self.assertIn("--agents myapp_general-claude --session-name myapp", out)
-        self.assertIn(f"--working-directory {repo.resolve()}", out)
+        # The hint is caokit's own launch: a raw `cao launch` skips its checks and session naming.
+        self.assertIn(f"caokit launch {repo.resolve()}", out)
+        self.assertNotIn("cao launch --agents", out)
         self.assertEqual(load_overrides(repo).roles["engineer"], {"model": "sonnet"})
 
     def test_init_bad_override_exits_1(self):

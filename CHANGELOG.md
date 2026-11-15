@@ -10,6 +10,15 @@ Pre-releases (`0.3.0.devN`) are published to PyPI; install one with `uv tool ins
 - Versions are bumped with `bump-my-version` (configured in `pyproject.toml`), which updates both version strings, commits and tags.
 - Logo, badges and a reorganised README.
 
+### Fixed
+- `caokit launch --headless` exits 1 and says how to answer when the General opens on a menu and the launch prompt is not delivered (`cao` reports this with exit code 0).
+- `caokit send` prints the General's screen when it fails because the General is waiting on an interactive question.
+- `caokit init --name` suggests `caokit server` and `caokit launch` as next steps, not a raw `cao launch`.
+
+### Proven live (2026-11-15, on 0.3.0.dev0 from PyPI)
+- `caokit reset --yes`; `tasks schedule --install` and `--remove` (crontab restored byte for byte).
+- Worktree mode with two parallel engineers, an engineer's mid-task question to the General, rework on the same terminal (second commit on the same branch), acceptance, a real merge with a conflict, `stop` and `tasks archive`.
+
 ### Removed
 - `VERSION` (stale and unread) and `QUICKSTART.md` (a pointer to the README).
 

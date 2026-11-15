@@ -260,14 +260,11 @@ def cmd_init(a: argparse.Namespace) -> int:
         ".gitignore updated (caokit block). Review `git status`, then commit contracts/ yourself."
     )
     if cfg.project:
-        general = profile_name("general", cfg.roles["general"].tool, cfg.project)
         repo_abs = Path(a.repo).resolve()
         print(f"Project '{cfg.project}': profiles are namespaced. Next:")
         print(f"  caokit install --project {repo_abs}")
-        print(
-            f"  cao launch --agents {general} --session-name {cfg.project} "
-            f"--working-directory {repo_abs}"
-        )
+        print("  caokit server    # in another terminal, if it is not running")
+        print(f"  caokit launch {repo_abs}")
     return 0
 
 
@@ -308,6 +305,47 @@ def _run(argv: Sequence[str]) -> int:
     except FileNotFoundError:
         print(f"error: command not found: {argv[0]}", file=sys.stderr)
         return 127
+
+
+def _capture(argv: Sequence[str]) -> tuple[int, str]:
+    """Run ``argv`` quietly and return ``(exit code, output)``; ``(127, "")`` if missing."""
+    try:
+        r = subprocess.run(
+            list(argv), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False
+        )
+    except FileNotFoundError:
+        return 127, ""
+    return r.returncode, r.stdout
+
+
+def _run_tee(argv: Sequence[str]) -> tuple[int, str]:
+    """Run ``argv``, echoing its output line by line, and return ``(exit code, output)``.
+
+    For commands that do not need the terminal (a headless launch) but whose output has to be
+    inspected: ``cao`` reports some failures as an ``Error:`` line with exit code 0.
+    """
+    try:
+        proc = subprocess.Popen(
+            list(argv), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        )
+    except FileNotFoundError:
+        print(f"error: command not found: {argv[0]}", file=sys.stderr)
+        return 127, ""
+    lines = []
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        sys.stdout.write(line)
+        sys.stdout.flush()
+        lines.append(line)
+    return proc.wait(), "".join(lines)
+
+
+def _how_to_answer(session: str) -> str:
+    """Say how to answer a prompt the General shows in its own terminal."""
+    return (
+        f"Answer it with `tmux attach -t {session}` (detach again with Ctrl-b d), "
+        "then continue with `caokit send`."
+    )
 
 
 def _session_of(a: argparse.Namespace) -> tuple[Path, str, str]:
@@ -356,7 +394,19 @@ def cmd_launch(a: argparse.Namespace) -> int:
     except (ConfigError, ValueError, OSError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
-    return _run(argv)
+    if not a.headless:
+        return _run(argv)  # attaches to tmux, so it needs the terminal
+    code, out = _run_tee(argv)
+    if "was not delivered" in out:
+        # cao exits 0 here: the General's CLI opened on a menu (a login, trust or feature
+        # prompt) and the launch prompt never reached it.
+        print(
+            "error: the General is waiting on an interactive prompt, so the launch prompt "
+            f"was not delivered.\n{_how_to_answer(session_id(name))}",
+            file=sys.stderr,
+        )
+        return code or 1
+    return code
 
 
 def cmd_status(a: argparse.Namespace) -> int:
@@ -377,7 +427,18 @@ def cmd_send(a: argparse.Namespace) -> int:
     except ConfigError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
-    return _run(build_send_argv(session_id(name), a.message, a.timeout))
+    sid = session_id(name)
+    code = _run(build_send_argv(sid, a.message, a.timeout))
+    if code != 0 and "waiting_user_answer" in _capture(["cao", "session", "status", sid])[1]:
+        # `cao session send` cannot answer a menu, so it times out without showing the question.
+        screen = _capture(["tmux", "capture-pane", "-p", "-t", sid])[1]
+        tail = [line.rstrip() for line in screen.splitlines() if line.strip()][-25:]
+        print(
+            "The General is waiting on an interactive question, which `caokit send` cannot "
+            "answer. Its screen:\n\n  " + "\n  ".join(tail) + f"\n\n{_how_to_answer(sid)}",
+            file=sys.stderr,
+        )
+    return code
 
 
 def cmd_stop(a: argparse.Namespace) -> int:
