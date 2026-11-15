@@ -13,6 +13,7 @@ Pre-releases (`0.3.0.devN`) are published to PyPI; install one with `uv tool ins
 - Custom roles: `caokit role add|list|remove` defines roles beyond the four built-in ones. A custom role is a role file (`~/.config/caokit/roles/<name>.md`, or `.company/roles/<name>.md` for one project) plus a `[roles.<name>]` binding; it is rendered, validated and installed like the others, and `ROSTER.md` describes it to the General. Built-in roles cannot be replaced, `"*"` in `allowedTools` is refused, and a soft-enforcement tool is flagged.
 
 ### Changed
+- **The project folder is now `.caokit/`, not `.company/`**, following the convention of naming a tool's folder after the tool. In an existing project: `mv .company .caokit`, then `caokit init <repo>` (updates `.gitignore` and `ROSTER.md`) and `caokit install` again, because the role prompts name the folder. `caokit init` and the project commands say this when they find the old folder; nothing is moved for you.
 - A role name that is not built in is no longer a config error by itself; it is a custom role and is rejected by the roster rules if it has no role file.
 
 ### Fixed

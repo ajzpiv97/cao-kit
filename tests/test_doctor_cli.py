@@ -418,17 +418,17 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("make test", out)
         self.assertIn(".gitignore updated", out)
-        self.assertTrue((repo / ".company" / "ROSTER.md").is_file())
+        self.assertTrue((repo / ".caokit" / "ROSTER.md").is_file())
         code, out, _ = run_cli("--config", str(self.cfg), "init", str(repo))
         self.assertEqual(code, 0)
-        self.assertIn("  kept: .company/COMPANY.md", out)
+        self.assertIn("  kept: .caokit/COMPANY.md", out)
 
     def test_init_reports_warning_note_and_no_suggestion(self):
         self.create()
         repo = self.tmp / "repo2"
         repo.mkdir()
         subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
-        (repo / ".gitignore").write_text(".company/\n")
+        (repo / ".gitignore").write_text(".caokit/\n")
         code, out, _ = run_cli("--config", str(self.cfg), "init", str(repo))
         self.assertEqual(code, 0)
         self.assertIn("WARNING: .gitignore already ignores", out)

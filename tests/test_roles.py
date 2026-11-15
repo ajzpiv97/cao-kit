@@ -112,11 +112,11 @@ class CustomRoleTests(unittest.TestCase):
     def test_project_role_is_namespaced_listed_in_the_roster_and_not_user_level(self):
         self.init_project()
         res = add_role("auditor", Binding("claude", "haiku"), self.cfg_path, repo=self.repo)
-        self.assertEqual(res.role_file, self.repo / ".company" / "roles" / "auditor.md")
+        self.assertEqual(res.role_file, self.repo / ".caokit" / "roles" / "auditor.md")
         self.assertNotIn("auditor", load_config(self.cfg_path).roles)
         cfg = effective_config(self.repo, load_config(self.cfg_path))
         self.assertIn("pj_auditor-claude", render_all(cfg))
-        roster = (self.repo / ".company" / "ROSTER.md").read_text()
+        roster = (self.repo / ".caokit" / "ROSTER.md").read_text()
         self.assertIn("| auditor | `pj_auditor-claude` | claude | haiku |", roster)
         self.assertIn("## Custom roles", roster)
         self.assertIn("- `auditor`: auditor: one line saying", roster)
@@ -128,11 +128,11 @@ class CustomRoleTests(unittest.TestCase):
         cfg = effective_config(self.repo, load_config(self.cfg_path))
         self.assertEqual(cfg.roles["auditor"], Binding("claude", "haiku"))
         # The user-level file is reused: nothing was copied into the project.
-        self.assertFalse((self.repo / ".company" / "roles" / "auditor.md").exists())
+        self.assertFalse((self.repo / ".caokit" / "roles" / "auditor.md").exists())
 
     def test_a_project_only_role_needs_a_tool(self):
         self.init_project()
-        (self.repo / ".company" / "caokit.toml").write_text(
+        (self.repo / ".caokit" / "caokit.toml").write_text(
             'schema = 1\n[project]\nname = "pj"\n[roles.auditor]\nmodel = "haiku"\n'
         )
         with self.assertRaisesRegex(ConfigError, "roles.auditor: no tool"):

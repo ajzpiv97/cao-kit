@@ -27,7 +27,7 @@ Describe here what this role does and what a good result looks like.
 Follow these boundaries exactly, whether or not your tool enforces them:
 
 - Read repository files as needed.
-- Write only under `.company/artifacts/` or `.company/handoffs/`.
+- Write only under `.caokit/artifacts/` or `.caokit/handoffs/`.
 - Do not modify application source, dependencies, configuration, CI/CD, infrastructure, or Git state.
 - Do not run shell commands.
 - Do not access credentials, secrets, private accounts, production systems, or billing systems.
@@ -42,7 +42,7 @@ line with: run only the task's authorised validation commands, and paste their r
 Unless the task says otherwise, write:
 
 ```text
-.company/artifacts/<TASK-ID>-__ROLE__.md
+.caokit/artifacts/<TASK-ID>-__ROLE__.md
 ```
 
 Include what you were asked, what you examined, what you found, and what is still unknown.

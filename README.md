@@ -37,7 +37,7 @@ uv tool install --prerelease allow caokit   # 0.3.0 is in pre-release on PyPI
 caokit doctor                  # checks CLIs, auth, CAO version and the server
 caokit company create          # pick a tool and model per role
 caokit install                 # install the profiles into CAO
-caokit init /path/to/repo      # scaffold .company/ in your project
+caokit init /path/to/repo      # scaffold .caokit/ in your project
 caokit server                  # terminal A: leave running
 caokit launch /path/to/repo    # terminal B: talk to the General
 ```
@@ -84,7 +84,7 @@ caokit doctor                                             # CLIs, auth, CAO vers
 caokit company create --general claude:sonnet --engineer claude:opus \
     --scout antigravity:gemini-3.8-flash-medium --inspector antigravity:gemini-4-argon-high
 caokit install                         # render and install the profiles into CAO
-caokit init /path/to/repo              # scaffold .company/, ROSTER.md, merge .gitignore
+caokit init /path/to/repo              # scaffold .caokit/, ROSTER.md, merge .gitignore
 caokit server                          # terminal A: start cao-server (leave running)
 caokit launch /path/to/repo            # terminal B: start the General in this project
 ```
@@ -95,11 +95,11 @@ recommended one.
 For a hands-off smoke test instead of talking to the General, launch the scaffolded TASK-0001:
 
 ```bash
-caokit launch /path/to/repo --headless --auto-approve --prompt-file /path/to/repo/.company/prompts/first-run.md
+caokit launch /path/to/repo --headless --auto-approve --prompt-file /path/to/repo/.caokit/prompts/first-run.md
 caokit status /path/to/repo           # watch the workers
 ```
 
-Expect artifacts under `.company/` (`artifacts/`, `research/`, `reviews/`, `decisions/`) and no
+Expect artifacts under `.caokit/` (`artifacts/`, `research/`, `reviews/`, `decisions/`) and no
 application-source changes.
 
 ## Roles
@@ -127,7 +127,7 @@ limits, for example an adversarial reviewer, a migration planner or a cheap tran
 
 ```bash
 caokit role add auditor claude:haiku              # user level: writes ~/.config/caokit/roles/auditor.md
-caokit role add auditor claude:haiku --project ~/proj-a   # this project only: .company/roles/auditor.md
+caokit role add auditor claude:haiku --project ~/proj-a   # this project only: .caokit/roles/auditor.md
 caokit role add auditor claude --from my-role.md  # start from your own file instead of the template
 caokit role list
 caokit role remove auditor                        # unbinds it; the role file is kept
@@ -147,15 +147,15 @@ edit the file, run `caokit install` and relaunch.
   a custom role never stands in for the inspector: source changes are still reviewed by it.
 - **Names** are lowercase letters and digits. A project's role file wins over a user-level one with
   the same name, and a project can rebind a user-level role with `--override auditor=:sonnet`.
-- A project's `.company/roles/` is git-ignored like the rest of `.company/` except `contracts/`.
+- A project's `.caokit/roles/` is git-ignored like the rest of `.caokit/` except `contracts/`.
 
 Keep `fs_write` in the General's profile. CAO's validator warns that it is "not recognised", but
-that is a gap in its own vocabulary check, and removing it would block the General's `.company/`
+that is a gap in its own vocabulary check, and removing it would block the General's `.caokit/`
 writes.
 
 ## Task workflow
 
-1. **Intake.** You state the goal. The General writes `.company/tasks/TASK-NNNN-<slug>.md` from the
+1. **Intake.** You state the goal. The General writes `.caokit/tasks/TASK-NNNN-<slug>.md` from the
    template, then takes one of two paths:
    - **Fast path**, for a clear task that needs at most two agents and meets no plan-path trigger:
      the General records `APPROVED` under the pre-authorised rule and dispatches without stopping.
@@ -176,8 +176,8 @@ writes.
    extras as a **contract breach**. It never accepts silently.
 6. **Accept.** Only your "accept" moves a task to `ACCEPTED`. Then run `caokit tasks archive`.
 
-Task files are the audit trail. Contracts live in `.company/contracts/` and are tracked by git; the
-rest of `.company/` is git-ignored.
+Task files are the audit trail. Contracts live in `.caokit/contracts/` and are tracked by git; the
+rest of `.caokit/` is git-ignored.
 
 ## Working with the General
 
@@ -201,7 +201,7 @@ Destructive commands (`uninstall`, `tasks prune`, `reset`) are dry runs unless y
 | `caokit company create [--general\|--engineer\|--scout\|--inspector TOOL[:MODEL]] [--force]` | Write `caokit.toml` (role to tool and model), with every guardrail checked; `--force` overwrites an existing file |
 | `caokit install [--project REPO]` | Render, validate, install and byte-verify profiles; `--replace-legacy` / `--remove-legacy` for old copies |
 | `caokit uninstall [--project REPO] [--yes]` | Remove a roster's profiles from CAO. Leftover `agent-context` copies are moved to a backup, not deleted |
-| `caokit init REPO [--name P] [--override ROLE=TOOL[:MODEL]] [--force-project]` | Scaffold `.company/` in a git repo; `--name` namespaces its profiles; `--force-project` overwrites an existing project file |
+| `caokit init REPO [--name P] [--override ROLE=TOOL[:MODEL]] [--force-project]` | Scaffold `.caokit/` in a git repo; `--name` namespaces its profiles; `--force-project` overwrites an existing project file |
 | `caokit role list\|add\|remove [NAME] [TOOL[:MODEL]] [--project REPO] [--from FILE]` | Manage [custom roles](#custom-roles) beyond the four built-in ones |
 | `caokit reset [--yes]` | Back up CAO's state, reinstall CAO 2.5.4 and the profiles |
 
@@ -220,7 +220,7 @@ Destructive commands (`uninstall`, `tasks prune`, `reset`) are dry runs unless y
 | Command | Purpose |
 |---|---|
 | `caokit tasks [list] [REPO]` | Open tasks and what blocks them (`--all` includes finished ones) |
-| `caokit tasks archive [REPO] [--delete]` | Move `ACCEPTED`, `CANCELLED` and `FAILED` tasks to `.company/tasks/archive/`; `--delete` removes them instead |
+| `caokit tasks archive [REPO] [--delete]` | Move `ACCEPTED`, `CANCELLED` and `FAILED` tasks to `.caokit/tasks/archive/`; `--delete` removes them instead |
 | `caokit tasks policy [REPO] [--keep-archived-days N] [--worktrees on\|off]` | Set how long a project keeps archived tasks, and whether each task gets its own worktree |
 | `caokit tasks prune [REPO] [--days N] [--yes]` | Delete archived tasks older than the policy |
 | `caokit tasks schedule [REPO] [--install\|--remove] [--at HH:MM]` | Print, add or remove the daily cron entry that archives and prunes |
@@ -245,7 +245,7 @@ caokit install --project ~/proj-b
 caokit launch ~/proj-a                                     # session cao-proja
 ```
 
-- Two layers: the user-level `caokit.toml`, then the project's `.company/caokit.toml` (git-ignored) with a
+- Two layers: the user-level `caokit.toml`, then the project's `.caokit/caokit.toml` (git-ignored) with a
   `[project] name`, optional `[policy]`, `[tasks]`, and per-role `tool`/`model` overrides.
 - Override forms: `role=tool`, `role=tool:model`, `role=:model` (keep the tool). Changing a role's tool
   without a model drops the user-level model (a model ID from one tool means nothing to another).
@@ -270,7 +270,7 @@ caokit launch ~/proj-a                                     # session cao-proja
 Archived tasks are kept until the project's policy says otherwise:
 
 ```bash
-caokit tasks policy ~/proj-a --keep-archived-days 90     # per project, stored in .company/caokit.toml
+caokit tasks policy ~/proj-a --keep-archived-days 90     # per project, stored in .caokit/caokit.toml
 caokit tasks prune ~/proj-a                              # dry run: lists archived tasks older than 90 days
 caokit tasks prune ~/proj-a --yes                        # deletes them
 caokit tasks schedule ~/proj-a                           # prints the daily cron line
@@ -299,7 +299,7 @@ With it on, the General dispatches each source-changing engineer through CAO's `
 - The inspector reviews and re-runs the validation commands inside that checkout (`cd <worktree> && ...`).
 - **You merge**: `git merge cao/<id>`, then `git branch -d cao/<id>`. caokit never merges or deletes branches.
 - A new worktree starts from the last commit, so uncommitted changes in your main checkout are not in it.
-- `.company/` is git-ignored, so agents read and write it at the project root, not in the checkout.
+- `.caokit/` is git-ignored, so agents read and write it at the project root, not in the checkout.
 - **Git-ignored files are not in the checkout** (`node_modules`, `.venv`, `.env`, build caches), and CAO deletes them
   with it. Have the task's authorised commands start with your install step (`npm ci`, `pnpm install --frozen-lockfile`,
   `uv sync`); pnpm and uv share a global store, so that is cheap. Do not symlink the main `node_modules` in: parallel

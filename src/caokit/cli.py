@@ -735,14 +735,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     ins.add_argument(
         "--project",
         metavar="REPO",
-        help="install this project's namespaced profiles (needs .company/caokit.toml)",
+        help="install this project's namespaced profiles (needs .caokit/caokit.toml)",
     )
     ins.set_defaults(fn=cmd_install)
     un = sub.add_parser("uninstall", help="remove the roster's profiles from CAO")
     un.add_argument("--project", metavar="REPO", help="remove this project's namespaced profiles")
     un.add_argument("--yes", action="store_true", help="do it (default is a dry run)")
     un.set_defaults(fn=cmd_uninstall)
-    ini = sub.add_parser("init", help="scaffold .company/ in a git repo")
+    ini = sub.add_parser("init", help="scaffold .caokit/ in a git repo")
     ini.add_argument("repo")
     ini.add_argument("--name", metavar="PROJECT", help="project slug; namespaces its profiles")
     ini.add_argument(
@@ -753,7 +753,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="override a role for this project (repeatable); ROLE=:MODEL keeps the tool",
     )
     ini.add_argument(
-        "--force-project", action="store_true", help="overwrite an existing .company/caokit.toml"
+        "--force-project", action="store_true", help="overwrite an existing .caokit/caokit.toml"
     )
     ini.set_defaults(fn=cmd_init)
     ro = sub.add_parser("role", help="list, add or remove custom roles")

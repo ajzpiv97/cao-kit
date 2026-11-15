@@ -30,9 +30,9 @@ class RetentionTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.repo = Path(self.tmp.name)
-        self.tasks = self.repo / ".company" / "tasks"
+        self.tasks = self.repo / ".caokit" / "tasks"
         self.tasks.mkdir(parents=True)
-        (self.repo / ".company" / "caokit.toml").write_text('schema = 1\n[project]\nname = "pj"\n')
+        (self.repo / ".caokit" / "caokit.toml").write_text('schema = 1\n[project]\nname = "pj"\n')
 
     def archived(self, n, age_days):
         (self.tasks / f"TASK-{n:04d}-x.md").write_text(task(n, "ACCEPTED"))
@@ -196,8 +196,8 @@ class ScheduleCliTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.repo = Path(self.tmp.name)
-        (self.repo / ".company" / "tasks").mkdir(parents=True)
-        (self.repo / ".company" / "caokit.toml").write_text(
+        (self.repo / ".caokit" / "tasks").mkdir(parents=True)
+        (self.repo / ".caokit" / "caokit.toml").write_text(
             'schema = 1\n[project]\nname = "demo"\n', encoding="utf-8"
         )
 

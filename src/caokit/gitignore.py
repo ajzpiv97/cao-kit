@@ -2,8 +2,8 @@
 
 BEGIN = "# >>> caokit >>>"
 END = "# <<< caokit <<<"
-# Ignore everything under .company/ except contracts/, which the team tracks.
-RULES = [".company/*", "!.company/contracts/"]
+# Ignore everything under .caokit/ except contracts/, which the team tracks.
+RULES = [".caokit/*", "!.caokit/contracts/"]
 
 
 def merge_gitignore(existing: str) -> str:

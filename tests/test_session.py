@@ -93,8 +93,8 @@ class SessionCliTests(unittest.TestCase):
         self.cfg = self.root / "caokit.toml"
         self.cfg.write_text(dump_config(good_config()))
         self.repo = self.root / "proj"
-        (self.repo / ".company").mkdir(parents=True)
-        (self.repo / ".company" / "caokit.toml").write_text('schema = 1\n[project]\nname = "pj"\n')
+        (self.repo / ".caokit").mkdir(parents=True)
+        (self.repo / ".caokit" / "caokit.toml").write_text('schema = 1\n[project]\nname = "pj"\n')
 
     def run_cli(self, *argv):
         err = io.StringIO()

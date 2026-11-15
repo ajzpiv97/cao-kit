@@ -18,10 +18,10 @@ The team is a set of **roles**, not named tools. Which tool and model fills each
 
 | Role | Authority |
 |---|---|
-| General | Single entry point. Drafts tasks, dispatches by role, runs the acceptance procedure. Reads the repo, writes `.company/` only. The only role that dispatches. |
+| General | Single entry point. Drafts tasks, dispatches by role, runs the acceptance procedure. Reads the repo, writes `.caokit/` only. The only role that dispatches. |
 | Engineer | Scoped implementation; runs only the task's authorised commands. |
-| Scout | Research; read-only, does not build. Writes under `.company/` only. |
-| Inspector | Independent review outside the line that did the work; writes `.company/reviews/` only. |
+| Scout | Research; read-only, does not build. Writes under `.caokit/` only. |
+| Inspector | Independent review outside the line that did the work; writes `.caokit/reviews/` only. |
 
 ## Human approval gates
 

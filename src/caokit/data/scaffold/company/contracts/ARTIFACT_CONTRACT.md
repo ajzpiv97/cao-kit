@@ -2,7 +2,7 @@
 
 ## Persistence
 
-Substantial outputs must be written under `.company/` so they survive terminal shutdown and can be reviewed by another provider.
+Substantial outputs must be written under `.caokit/` so they survive terminal shutdown and can be reviewed by another provider.
 
 ## Required metadata
 
@@ -33,10 +33,10 @@ An artifact must state:
 ## Naming
 
 ```text
-.company/artifacts/<TASK-ID>-<profile>.md
-.company/research/<TASK-ID>-<profile>.md
-.company/reviews/<TASK-ID>-<reviewer>.md
-.company/decisions/<TASK-ID>-<decision>.md
+.caokit/artifacts/<TASK-ID>-<profile>.md
+.caokit/research/<TASK-ID>-<profile>.md
+.caokit/reviews/<TASK-ID>-<reviewer>.md
+.caokit/decisions/<TASK-ID>-<decision>.md
 ```
 
 ## No terminal-only completion

@@ -1,7 +1,7 @@
 """Project-level configuration: per-project overrides layered on the user-level company.
 
 The user-level ``caokit.toml`` (``~/.config/caokit``) defines the default roster. A
-project may add ``<repo>/.company/caokit.toml`` with a project name and overrides for
+project may add ``<repo>/.caokit/caokit.toml`` with a project name and overrides for
 individual roles. The *effective* config is the user-level one with those overrides
 applied, and its profiles are named ``<project>_<role>-<tool>`` so projects never
 overwrite each other in CAO's machine-global profile store.
@@ -38,10 +38,30 @@ from .config import POLICY_KEYS, SCHEMA, Binding, Config, ConfigError, _only
 from .render import validate_project_name
 from .roster import check_roster
 
-# Lives under .company/, which the managed .gitignore block ignores (except contracts/).
-PROJECT_FILE = Path(".company") / "caokit.toml"
+# Lives under .caokit/, which the managed .gitignore block ignores (except contracts/).
+PROJECT_FILE = Path(".caokit") / "caokit.toml"
+# The folder was called .company before 0.3.0.
+LEGACY_DIR = ".company"
+
+
+def legacy_hint(repo: Path) -> str:
+    """Return how to migrate a project that still has the pre-0.3.0 ``.company`` folder.
+
+    Returns:
+        An instruction to append to an error, or "" if there is nothing to migrate.
+    """
+    repo = Path(repo)
+    if (repo / LEGACY_DIR).is_dir() and not (repo / ".caokit").exists():
+        return (
+            f" This project has the old `{LEGACY_DIR}/` folder: rename it with "
+            f"`mv {repo / LEGACY_DIR} {repo / '.caokit'}`, then run `caokit init {repo}` "
+            "(updates .gitignore and ROSTER.md) and `caokit install` again."
+        )
+    return ""
+
+
 # A project's own custom role files; searched before the user-level roles folder.
-PROJECT_ROLES = Path(".company") / "roles"
+PROJECT_ROLES = Path(".caokit") / "roles"
 _POLICY_KEYS = POLICY_KEYS
 
 
@@ -123,7 +143,7 @@ def parse_overrides(d: dict[str, Any]) -> Overrides:
 
 
 def load_overrides(repo: Path) -> Overrides:
-    """Read and validate ``<repo>/.company/caokit.toml``.
+    """Read and validate ``<repo>/.caokit/caokit.toml``.
 
     Args:
         repo: Project root.
@@ -137,7 +157,8 @@ def load_overrides(repo: Path) -> Overrides:
     path = Path(repo) / PROJECT_FILE
     if not path.is_file():
         raise ConfigError(
-            f"no project config at {path}; run `caokit init {repo} --name <project>` first"
+            legacy_hint(repo).strip()
+            or f"no project config at {path}; run `caokit init {repo} --name <project>` first"
         )
     try:
         return parse_overrides(tomllib.loads(path.read_text(encoding="utf-8")))
@@ -192,7 +213,7 @@ def apply_overrides(base: Config, ov: Overrides, repo: Path | None = None) -> Co
     Args:
         base: The user-level configuration.
         ov: The project's overrides.
-        repo: Project root. Its ``.company/roles`` folder is searched for custom role files
+        repo: Project root. Its ``.caokit/roles`` folder is searched for custom role files
             before the user-level one.
 
     Returns:

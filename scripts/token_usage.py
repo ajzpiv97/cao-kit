@@ -4,7 +4,7 @@
 Claude Code writes one transcript per session under
 ``~/.claude/projects/<repo path with non-alphanumerics replaced by '-'>/``.
 Each assistant message carries a ``usage`` block. This script sums them and
-labels each session by the ``.company/`` paths it writes to, since the
+labels each session by the ``.caokit/`` paths it writes to, since the
 transcripts do not name the CAO terminal.
 
 Antigravity (agy) sessions are not covered: they leave no token data here.
@@ -25,12 +25,12 @@ FIELDS = ("input_tokens", "output_tokens", "cache_creation_input_tokens", "cache
 # who the session is. First match wins. The captain owns the task file and the
 # shared logs, a worker owns only its artifact or review.
 ROLE_BY_PATH = (
-    ("/.company/tasks/", "captain"),
-    ("/.company/DECISIONS.md", "captain"),
-    ("/.company/BACKLOG.md", "captain"),
-    ("/.company/TEAM.md", "captain"),
-    ("/.company/reviews/", "reviewer"),
-    ("/.company/artifacts/", "engineer"),
+    ("/.caokit/tasks/", "captain"),
+    ("/.caokit/DECISIONS.md", "captain"),
+    ("/.caokit/BACKLOG.md", "captain"),
+    ("/.caokit/TEAM.md", "captain"),
+    ("/.caokit/reviews/", "reviewer"),
+    ("/.caokit/artifacts/", "engineer"),
 )
 WRITE_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
 

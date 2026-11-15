@@ -199,15 +199,15 @@ class InitTests(unittest.TestCase):
         (r / ".gitignore").write_text("node_modules/\n")
         res = init_project(r, GOOD)
         for rel in (
-            ".company/COMPANY.md",
-            ".company/ROSTER.md",
-            ".company/contracts/REVIEW_CONTRACT.md",
-            ".company/tasks/TASK_TEMPLATE.md",
-            ".company/reviews",
-            ".company/handoffs",
+            ".caokit/COMPANY.md",
+            ".caokit/ROSTER.md",
+            ".caokit/contracts/REVIEW_CONTRACT.md",
+            ".caokit/tasks/TASK_TEMPLATE.md",
+            ".caokit/reviews",
+            ".caokit/handoffs",
         ):
             self.assertTrue((r / rel).exists(), rel)
-        roster = (r / ".company/ROSTER.md").read_text()
+        roster = (r / ".caokit/ROSTER.md").read_text()
         for name in (
             "general-claude",
             "engineer-claude",
@@ -223,28 +223,26 @@ class InitTests(unittest.TestCase):
     def test_git_actually_ignores_all_but_contracts(self):
         r = self.repo()
         init_project(r, GOOD)
-        (r / ".company/tasks/TASK-0002-x.md").write_text("x")
+        (r / ".caokit/tasks/TASK-0002-x.md").write_text("x")
+        self.assertEqual(git(r, "check-ignore", "-q", ".caokit/tasks/TASK-0002-x.md").returncode, 0)
+        self.assertEqual(git(r, "check-ignore", "-q", ".caokit/ROSTER.md").returncode, 0)
         self.assertEqual(
-            git(r, "check-ignore", "-q", ".company/tasks/TASK-0002-x.md").returncode, 0
-        )
-        self.assertEqual(git(r, "check-ignore", "-q", ".company/ROSTER.md").returncode, 0)
-        self.assertEqual(
-            git(r, "check-ignore", "-q", ".company/contracts/REVIEW_CONTRACT.md").returncode, 1
+            git(r, "check-ignore", "-q", ".caokit/contracts/REVIEW_CONTRACT.md").returncode, 1
         )
 
     def test_never_overwrites_and_is_idempotent(self):
         r = self.repo()
         init_project(r, GOOD)
-        (r / ".company/COMPANY.md").write_text("MINE")
+        (r / ".caokit/COMPANY.md").write_text("MINE")
         gi_before = (r / ".gitignore").read_text()
         res = init_project(r, GOOD)
-        self.assertEqual((r / ".company/COMPANY.md").read_text(), "MINE")
-        self.assertIn(".company/COMPANY.md", res.kept)
+        self.assertEqual((r / ".caokit/COMPANY.md").read_text(), "MINE")
+        self.assertIn(".caokit/COMPANY.md", res.kept)
         self.assertEqual((r / ".gitignore").read_text(), gi_before)
 
     def test_warns_when_company_already_ignored(self):
         r = self.repo()
-        (r / ".gitignore").write_text(".company/\n")
+        (r / ".gitignore").write_text(".caokit/\n")
         res = init_project(r, GOOD)
         self.assertTrue(res.warnings)
 
@@ -252,7 +250,7 @@ class InitTests(unittest.TestCase):
         r = self.repo()
         (r / "Makefile").write_text("test:\n\techo\n")
         init_project(r, GOOD)
-        self.assertIn("make test", (r / ".company/ROSTER.md").read_text())
+        self.assertIn("make test", (r / ".caokit/ROSTER.md").read_text())
 
 
 @unittest.skipUnless(shutil.which("cao"), "cao not installed")

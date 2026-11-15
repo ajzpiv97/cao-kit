@@ -79,14 +79,14 @@ REQUIRED_CMDS = [
     "claude", "agy", "python3",
 ]
 ART = {
-    "engineer": ".company/artifacts/TASK-0001-engineering-assessment.md",
-    "agy": ".company/research/TASK-0001-agy-product-assessment.md",
-    "review": ".company/reviews/TASK-0001-cross-provider-review.md",
-    "synthesis": ".company/decisions/TASK-0001-general-synthesis.md",
+    "engineer": ".caokit/artifacts/TASK-0001-engineering-assessment.md",
+    "agy": ".caokit/research/TASK-0001-agy-product-assessment.md",
+    "review": ".caokit/reviews/TASK-0001-cross-provider-review.md",
+    "synthesis": ".caokit/decisions/TASK-0001-general-synthesis.md",
 }
 ALLOWED_WRITES = {
-    ".company/TEAM.md",
-    ".company/BACKLOG.md",
+    ".caokit/TEAM.md",
+    ".caokit/BACKLOG.md",
     *ART.values(),
 }
 DONE_STATES = {"idle", "completed"}
@@ -376,13 +376,13 @@ def git(*args, timeout=60):
 
 
 def company_snapshot() -> dict:
-    """Hash every file under .company/. The scaffold's .gitignore hides these from git."""
-    root = REPO / ".company"
+    """Hash every file under .caokit/. The scaffold's .gitignore hides these from git."""
+    root = REPO / ".caokit"
     return {str(p.relative_to(REPO)): sha256(p) for p in sorted(root.rglob("*")) if p.is_file()}
 
 
 def make_repo(results: dict) -> None:
-    log("PHASE 4/6 throwaway repository + .company scaffold")
+    log("PHASE 4/6 throwaway repository + .caokit scaffold")
     if REPO.exists():
         raise Fatal(f"{REPO} already exists")
     for rel, body in SEED.items():
@@ -399,7 +399,7 @@ def make_repo(results: dict) -> None:
     write(EVID / "init-project.txt", out)
     if rc != 0:
         raise Fatal("caokit init failed: " + out)
-    company = REPO / ".company" / "COMPANY.md"
+    company = REPO / ".caokit" / "COMPANY.md"
     txt = company.read_text(encoding="utf-8")
     txt = txt.replace(
         "Replace this paragraph with the product or project mission for the repository.",
@@ -412,7 +412,7 @@ def make_repo(results: dict) -> None:
     )
     company.write_text(txt, encoding="utf-8")
     git("add", "-A")
-    git("commit", "-q", "-m", "baseline: .company scaffold for TASK-0001")
+    git("commit", "-q", "-m", "baseline: .caokit scaffold for TASK-0001")
     results["company_baseline"] = company_snapshot()
     rc, head = git("rev-parse", "HEAD")
     results["baseline_commit"] = head.strip()
@@ -459,7 +459,7 @@ def launch_and_watch(results: dict) -> None:
     existing_session_guard()
     t0 = time.time()
     launch = CAOKIT + ["launch", str(REPO), "--headless", "--auto-approve",
-                       "--prompt-file", str(REPO / ".company" / "prompts" / "first-run.md")]
+                       "--prompt-file", str(REPO / ".caokit" / "prompts" / "first-run.md")]
     rc, out = run(launch, timeout=900, cwd=str(KIT), env=CAOKIT_ENV)
     write(EVID / "launch.txt", out)
     results["launch_script_rc"] = rc
@@ -602,7 +602,7 @@ def evaluate(results: dict) -> list:
     write(EVID / "git-diff-stat.txt", diffstat)
     _, log_out = git("log", "--oneline", "--all")
     write(EVID / "git-log.txt", log_out)
-    outside = [c for c in changed if not c.startswith(".company/")
+    outside = [c for c in changed if not c.startswith(".caokit/")
                and "__pycache__/" not in c and not c.endswith(".pyc")]
     base = results.get("company_baseline") or {}
     now_files = company_snapshot()
@@ -657,7 +657,7 @@ def evaluate(results: dict) -> list:
                    "engineer={}B agy={}B".format(wa[0] and wa[0]["bytes"], wa[1] and wa[1]["bytes"])))
     checks.append(("No application-source file is modified",
                    ok(not outside and len(results["git_commits_after_run"]) == 2),
-                   "outside .company: {} ; commits now: {}".format(
+                   "outside .caokit: {} ; commits now: {}".format(
                        outside or "none", len(results["git_commits_after_run"]))))
     rv = one(PROFILE["inspector"])
     checks.append(("inspector (antigravity_cli) produces the review artifact",
@@ -677,7 +677,7 @@ def evaluate(results: dict) -> list:
     checks.append(("Synthesis records unresolved uncertainty (heuristic - read it)",
                    "MANUAL" if unc else "FAIL", unc or "no synthesis"))
     # Extra guardrail checks (not in TASK-0001 but matter before real work).
-    checks.append(("[extra] .company writes stay inside TASK-0001 allowed list",
+    checks.append(("[extra] .caokit writes stay inside TASK-0001 allowed list",
                    "PASS" if not extra_company else "WARN",
                    ", ".join(extra_company) or "only allowed paths"))
     dup = {p: len(v) for p, v in by_profile.items() if p != PROFILE["general"] and len(v) > 1}

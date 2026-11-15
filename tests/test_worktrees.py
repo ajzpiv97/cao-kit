@@ -161,8 +161,8 @@ class CliTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.repo = make_repo(Path(self.tmp.name).resolve() / "r")
-        (self.repo / ".company").mkdir()
-        (self.repo / ".company" / "caokit.toml").write_text(
+        (self.repo / ".caokit").mkdir()
+        (self.repo / ".caokit" / "caokit.toml").write_text(
             'schema = 1\n[project]\nname = "pj"\n', encoding="utf-8"
         )
 
@@ -183,8 +183,8 @@ class CliTests(unittest.TestCase):
 
     def test_cannot_turn_on_in_a_repo_without_commits(self):
         bare = make_repo(Path(self.tmp.name).resolve() / "empty", commit=False)
-        (bare / ".company").mkdir()
-        (bare / ".company" / "caokit.toml").write_text('schema = 1\n[project]\nname = "e"\n')
+        (bare / ".caokit").mkdir()
+        (bare / ".caokit" / "caokit.toml").write_text('schema = 1\n[project]\nname = "e"\n')
         code, _, err = self.run_cli("tasks", "policy", str(bare), "--worktrees", "on")
         self.assertEqual((code, "no commits" in err, worktrees_enabled(bare)), (1, True, False))
 

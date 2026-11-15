@@ -149,7 +149,7 @@ class OverridesTests(unittest.TestCase):
 
     def test_load_invalid_toml(self):
         with tempfile.TemporaryDirectory() as t:
-            (Path(t) / ".company").mkdir()
+            (Path(t) / ".caokit").mkdir()
             (Path(t) / PROJECT_FILE).write_text("not = [valid")
             with self.assertRaisesRegex(ConfigError, "invalid TOML"):
                 load_overrides(Path(t))
@@ -178,7 +178,7 @@ class ResolveTests(unittest.TestCase):
 
     def test_existing_file_loaded(self):
         with tempfile.TemporaryDirectory() as t:
-            (Path(t) / ".company").mkdir()
+            (Path(t) / ".caokit").mkdir()
             (Path(t) / PROJECT_FILE).write_text(dump_overrides(Overrides("saved")))
             cfg, new = resolve_project(Path(t), GOOD, None, [])
             self.assertEqual(cfg.project, "saved")
@@ -214,7 +214,7 @@ class InitProjectTests(unittest.TestCase):
         ov = Overrides("myapp", roles={"engineer": {"model": "sonnet"}})
         init_project(repo, apply_overrides(GOOD, ov), overrides=ov)
         self.assertEqual(load_overrides(repo), ov)
-        roster = (repo / ".company/ROSTER.md").read_text()
+        roster = (repo / ".caokit/ROSTER.md").read_text()
         for role in ROLES:
             self.assertIn(f"myapp_{role}-", roster)
         self.assertIn("sonnet", roster)
@@ -224,7 +224,7 @@ class InitProjectTests(unittest.TestCase):
         repo = git_repo(self)
         ov = Overrides("myapp")
         init_project(repo, apply_overrides(GOOD, ov), overrides=ov)
-        r = subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".company/caokit.toml"])
+        r = subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".caokit/caokit.toml"])
         self.assertEqual(r.returncode, 0)
 
     def test_existing_project_file_protected(self):
@@ -349,7 +349,7 @@ class CliProjectTests(unittest.TestCase):
                 )
         self.assertEqual(code, 1)
         self.assertIn("cross-provider", err)
-        self.assertFalse((repo / ".company").exists())
+        self.assertFalse((repo / ".caokit").exists())
 
     def test_install_project_requires_project_file(self):
         repo = git_repo(self)
@@ -384,6 +384,18 @@ class CliProjectTests(unittest.TestCase):
             names,
             [f"myapp_{r}-{GOOD.roles[r].tool}" for r in sorted(ROLES)],
         )
+
+
+class LegacyFolderTests(unittest.TestCase):
+    def test_a_project_with_the_old_folder_is_told_how_to_rename_it(self):
+        repo = git_repo(self)
+        (repo / ".company").mkdir()
+        (repo / ".company" / "caokit.toml").write_text('schema = 1\n[project]\nname = "pj"\n')
+        with self.assertRaisesRegex(InitError, r"mv .*\.company .*\.caokit"):
+            init_project(repo, GOOD, agy_runner)
+        with self.assertRaisesRegex(ConfigError, r"mv .*\.company .*\.caokit"):
+            load_overrides(repo)
+        self.assertFalse((repo / ".caokit").exists())  # nothing is moved for the user
 
 
 if __name__ == "__main__":

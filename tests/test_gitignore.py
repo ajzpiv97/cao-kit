@@ -7,8 +7,8 @@ class MergeGitignoreTests(unittest.TestCase):
     def test_empty_gets_block(self):
         out = merge_gitignore("")
         self.assertIn(BEGIN, out)
-        self.assertIn(".company/*", out)
-        self.assertIn("!.company/contracts/", out)
+        self.assertIn(".caokit/*", out)
+        self.assertIn("!.caokit/contracts/", out)
         self.assertIn(END, out)
         self.assertTrue(out.endswith("\n"))
 
@@ -33,16 +33,16 @@ class MergeGitignoreTests(unittest.TestCase):
         self.assertEqual(merge_gitignore(once), once)
 
     def test_block_replaced_in_place(self):
-        old = f"a\n{BEGIN}\n.company/old\n{END}\nb\n"
+        old = f"a\n{BEGIN}\n.caokit/old\n{END}\nb\n"
         out = merge_gitignore(old)
-        self.assertNotIn(".company/old", out)
+        self.assertNotIn(".caokit/old", out)
         self.assertTrue(out.startswith("a\n"))
         self.assertTrue(out.endswith("b\n"))
         self.assertEqual(out.count(BEGIN), 1)
 
     def test_user_rule_untouched_when_user_already_ignores_company(self):
-        out = merge_gitignore(".company/\n")
-        self.assertTrue(out.startswith(".company/\n"))
+        out = merge_gitignore(".caokit/\n")
+        self.assertTrue(out.startswith(".caokit/\n"))
 
 
 if __name__ == "__main__":

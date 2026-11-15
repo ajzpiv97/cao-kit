@@ -2,7 +2,7 @@
 
 A custom role is a role file (``<role>.md``, the same format as the built-in ones) plus a
 binding to a tool in ``caokit.toml``. User-level files live next to the user config in
-``roles/``; a project's live in ``.company/roles/`` and are found first.
+``roles/``; a project's live in ``.caokit/roles/`` and are found first.
 """
 
 import contextlib

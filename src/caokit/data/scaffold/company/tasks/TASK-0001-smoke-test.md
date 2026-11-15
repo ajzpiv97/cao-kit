@@ -12,19 +12,19 @@ Prove that the General can launch and coordinate one engineer and one scout, col
 ## Inputs
 
 - repository contents,
-- `.company/COMPANY.md`,
-- all `.company/contracts/*.md` files.
+- `.caokit/COMPANY.md`,
+- all `.caokit/contracts/*.md` files.
 
 ## Allowed paths
 
 All agents may read the repository according to their profile. Writes are limited to:
 
-- `.company/TEAM.md`
-- `.company/BACKLOG.md`
-- `.company/artifacts/TASK-0001-engineering-assessment.md`
-- `.company/research/TASK-0001-agy-product-assessment.md`
-- `.company/reviews/TASK-0001-cross-provider-review.md`
-- `.company/decisions/TASK-0001-general-synthesis.md`
+- `.caokit/TEAM.md`
+- `.caokit/BACKLOG.md`
+- `.caokit/artifacts/TASK-0001-engineering-assessment.md`
+- `.caokit/research/TASK-0001-agy-product-assessment.md`
+- `.caokit/reviews/TASK-0001-cross-provider-review.md`
+- `.caokit/decisions/TASK-0001-general-synthesis.md`
 
 ## Forbidden paths and actions
 
@@ -37,7 +37,7 @@ All agents may read the repository according to their profile. Writes are limite
 
 ## Engineering deliverable (`engineer`)
 
-Write `.company/artifacts/TASK-0001-engineering-assessment.md` covering:
+Write `.caokit/artifacts/TASK-0001-engineering-assessment.md` covering:
 
 - repository structure and primary components,
 - likely execution path or architecture,
@@ -50,7 +50,7 @@ Do not modify application source and do not run commands that mutate the project
 
 ## Scout deliverable
 
-Write `.company/research/TASK-0001-agy-product-assessment.md` covering:
+Write `.caokit/research/TASK-0001-agy-product-assessment.md` covering:
 
 - apparent product purpose and target user,
 - observed user journey from repository evidence,
@@ -63,7 +63,7 @@ Do not modify application source or perform external side effects.
 
 ## Review deliverable
 
-`inspector` writes `.company/reviews/TASK-0001-cross-provider-review.md` covering:
+`inspector` writes `.caokit/reviews/TASK-0001-cross-provider-review.md` covering:
 
 - task-scope compliance,
 - overlap and disagreement between artifacts,
@@ -73,7 +73,7 @@ Do not modify application source or perform external side effects.
 
 ## General deliverable
 
-Write `.company/decisions/TASK-0001-general-synthesis.md` with:
+Write `.caokit/decisions/TASK-0001-general-synthesis.md` with:
 
 - provider routing proof,
 - worker terminal IDs,
@@ -99,7 +99,7 @@ Write `.company/decisions/TASK-0001-general-synthesis.md` with:
 
 ```bash
 git status --short
-find .company -type f -print
+find .caokit -type f -print
 ```
 
 Application-source changes cause this task to fail.

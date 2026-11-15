@@ -17,7 +17,7 @@ class TasksTests(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.repo = Path(self._tmp.name)
-        self.root = self.repo / ".company" / "tasks"
+        self.root = self.repo / ".caokit" / "tasks"
         self.root.mkdir(parents=True)
 
     def test_blocked_until_dependency_accepted(self):

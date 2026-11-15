@@ -1,4 +1,4 @@
-# `.company` workspace
+# `.caokit` workspace
 
 This directory is the persistent coordination layer for the CAO agent-company prototype.
 

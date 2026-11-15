@@ -20,7 +20,7 @@ This prototype is local, reversible, and human-supervised.
 
 ## Worktree mode
 
-When `.company/caokit.toml` sets `worktrees = true`, each engineer works in its own git worktree on a `cao/<id>` branch. In that worktree only, the engineer may run `git add -A` and `git commit`. Everything else on the prohibited list still applies, and the human merges.
+When `.caokit/caokit.toml` sets `worktrees = true`, each engineer works in its own git worktree on a `cao/<id>` branch. In that worktree only, the engineer may run `git add -A` and `git commit`. Everything else on the prohibited list still applies, and the human merges.
 
 ## Provider-specific cautions
 

@@ -70,4 +70,4 @@ The human must approve before:
 
 ## Callback format
 
-Use the standard callback in `.company/contracts/COMMUNICATION_CONTRACT.md`.
+Use the standard callback in `.caokit/contracts/COMMUNICATION_CONTRACT.md`.

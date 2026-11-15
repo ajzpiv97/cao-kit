@@ -93,7 +93,7 @@ Both are false positives. CAO's validator builds its vocabulary from its built-i
 `supervisor` role has no `fs_write`. The runtime mapping honours `fs_write` (it maps to Claude's `Edit`,
 `Write` and `NotebookEdit`), and explicit `allowedTools` take precedence over a custom role. **Keep
 `fs_write` in the General's profile**: without it CAO denies those tools and the General cannot write
-`.company/` files.
+`.caokit/` files.
 
 ## There seem to be two CAO installs
 
@@ -193,7 +193,7 @@ caokit install --project <project>
 
 For a full clean reinstall of CAO itself, run `caokit reset` (a dry run) and then `caokit reset --yes`. It moves CAO's state into `~/cao-reset-backup-<timestamp>/` and does not delete it.
 
-The files under the target repository's `.company/` directory are persistent project artifacts; CAO shutdown does not delete them.
+The files under the target repository's `.caokit/` directory are persistent project artifacts; CAO shutdown does not delete them.
 
 ## Parked: Codex
 

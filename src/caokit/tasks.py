@@ -1,4 +1,4 @@
-"""Read-only view of ``.company/tasks`` plus archiving of finished tasks."""
+"""Read-only view of ``.caokit/tasks`` plus archiving of finished tasks."""
 
 import os
 import re
@@ -32,10 +32,10 @@ class Task:
 
 
 def tasks_dir(repo: Path) -> Path:
-    """Return ``<repo>/.company/tasks``, raising if the repo has none."""
-    d = repo / ".company" / "tasks"
+    """Return ``<repo>/.caokit/tasks``, raising if the repo has none."""
+    d = repo / ".caokit" / "tasks"
     if not d.is_dir():
-        raise TaskError(f"no .company/tasks folder in {repo}")
+        raise TaskError(f"no .caokit/tasks folder in {repo}")
     return d
 
 
