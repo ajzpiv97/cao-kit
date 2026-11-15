@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "caokit"
-version = "0.3.0.dev0"
+version = "0.3.0.dev1"
 description = "Chain-of-command agent company kit for CAO (cli-agent-orchestrator)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -72,7 +72,7 @@ disallow_incomplete_defs = false
 check_untyped_defs = true        # but their bodies are still checked
 
 [tool.bumpversion]
-current_version = "0.3.0.dev0"
+current_version = "0.3.0.dev1"
 # PEP 440: 0.3.0.dev0 -> 0.3.0.dev1 -> 0.3.0.rc0 -> 0.3.0
 parse = """(?x)
     (?P<major>0|[1-9]\\d*)\\.
