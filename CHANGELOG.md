@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.3.0 (in development)
+
+Pre-releases (`0.3.0.devN`) are published to PyPI; install one with `uv tool install --prerelease allow caokit`.
+
+### Added
+- Published on PyPI as `caokit`. A GitHub release triggers `.github/workflows/release.yml`, which builds the package and uploads it through PyPI trusted publishing.
+- CI (`.github/workflows/ci.yml`): ruff, mypy and the unit tests on macOS with Python 3.11 and 3.13.
+- Versions are bumped with `bump-my-version` (configured in `pyproject.toml`), which updates both version strings, commits and tags.
+- Logo, badges and a reorganised README.
+
+### Removed
+- `VERSION` (stale and unread) and `QUICKSTART.md` (a pointer to the README).
+
 ## v0.2.2 (2026-11-09)
 
 ### Added

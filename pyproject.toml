@@ -41,7 +41,7 @@ where = ["src"]
 caokit = ["data/**/*"]
 
 [dependency-groups]
-dev = ["ruff>=0.6", "mypy>=1.10", "coverage>=7"]
+dev = ["ruff>=0.6", "mypy>=1.10", "coverage>=7", "bump-my-version>=1.0"]
 
 [tool.ruff]
 line-length = 100
@@ -70,3 +70,33 @@ disallow_untyped_defs = false    # test methods are not worth a "-> None" each
 disallow_untyped_calls = false
 disallow_incomplete_defs = false
 check_untyped_defs = true        # but their bodies are still checked
+
+[tool.bumpversion]
+current_version = "0.2.2"
+# PEP 440: 0.3.0.dev0 -> 0.3.0.dev1 -> 0.3.0.rc0 -> 0.3.0
+parse = """(?x)
+    (?P<major>0|[1-9]\\d*)\\.
+    (?P<minor>0|[1-9]\\d*)\\.
+    (?P<patch>0|[1-9]\\d*)
+    (?:\\.?(?P<pre_l>dev|rc)(?P<pre_n>0|[1-9]\\d*))?
+"""
+serialize = ["{major}.{minor}.{patch}.{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
+commit = true
+tag = true
+tag_name = "v{new_version}"
+tag_message = "Release v{new_version}"
+message = "Release v{new_version}"
+
+[tool.bumpversion.parts.pre_l]
+values = ["dev", "rc", "final"]
+optional_value = "final"
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "src/caokit/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'

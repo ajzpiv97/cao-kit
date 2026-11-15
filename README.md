@@ -314,6 +314,23 @@ Ruff and mypy both target Python 3.11, the minimum (`requires-python = ">=3.11"`
 runtime dependencies. `uv tool install` fetches a suitable interpreter, so the system Python does
 not matter.
 
+### Releasing
+
+Versions follow PEP 440 and are bumped with [`bump-my-version`](https://github.com/callowayproject/bump-my-version),
+which rewrites the version in `pyproject.toml` and `src/caokit/__init__.py`, commits and tags `vX.Y.Z`:
+
+```bash
+uvx bump-my-version show-bump          # preview what each bump would produce
+uvx bump-my-version bump minor         # 0.2.2 -> 0.3.0.dev0   (start a new version)
+uvx bump-my-version bump pre_n         # 0.3.0.dev0 -> 0.3.0.dev1
+uvx bump-my-version bump pre_l         # 0.3.0.dev1 -> 0.3.0.rc0, and again -> 0.3.0
+git push origin main --follow-tags
+gh release create vX.Y.Z --notes "..." # add --prerelease for dev and rc versions
+```
+
+Publishing the GitHub release runs `.github/workflows/release.yml`, which checks the tag against the
+package version, builds, and uploads to PyPI. Update `CHANGELOG.md` before bumping.
+
 `scripts/95-validate-e2e.sh` (the harness above) and `scripts/token_usage.py` (Claude token use per
 session) are development tools for this repo, not part of the installed CLI.
 
