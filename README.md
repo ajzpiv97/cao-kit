@@ -5,7 +5,7 @@
 <h1 align="center">caokit</h1>
 
 <p align="center">
-  <b>A small, local "company" of coding agents, run from one command line.</b>
+  <b>Command a swarm of coding agents from one terminal.</b>
 </p>
 
 <p align="center">
