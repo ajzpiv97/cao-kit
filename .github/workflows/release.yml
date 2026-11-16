@@ -1,35 +1,53 @@
 name: Release
 
-# Publishes to PyPI when a GitHub release is published. Uses PyPI trusted
-# publishing (OIDC), so there is no token or password to store.
+# Releases whatever version is in pyproject.toml when that version has no tag yet.
+# Merging a version bump to main is the release: this workflow publishes to PyPI,
+# then creates the tag and the GitHub release. Uses PyPI trusted publishing (OIDC),
+# so there is no token or password to store.
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
+    paths: [pyproject.toml]
+  workflow_dispatch:   # retry a release that failed part-way
 
 permissions:
   contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   build:
     name: Build and check the package
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.version.outputs.release }}
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: false
-      - name: Tag must match the package version
+      - name: Is this version already released?
+        id: version
         run: |
           version="$(uv run --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::release tag $GITHUB_REF_NAME does not match pyproject version $version"
-            exit 1
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "v$version is already tagged; nothing to release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Build
+        if: steps.version.outputs.release == 'true'
         run: uv build
       - name: Check metadata
+        if: steps.version.outputs.release == 'true'
         run: uvx twine check --strict dist/*
       - uses: actions/upload-artifact@v7
+        if: steps.version.outputs.release == 'true'
         with:
           name: dist
           path: dist/
@@ -37,6 +55,7 @@ jobs:
   publish:
     name: Publish to PyPI
     needs: build
+    if: needs.build.outputs.release == 'true'
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -49,3 +68,25 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true   # a retry after a failed tag step must not fail here
+
+  github-release:
+    name: Tag and create the GitHub release
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Create the tag and the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          # Notes are the top section of CHANGELOG.md.
+          awk '/^## /{n++; next} n==1' CHANGELOG.md > notes.md
+          flags=()
+          case "$VERSION" in *dev*|*rc*) flags+=(--prerelease) ;; esac
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" \
+            --notes-file notes.md "${flags[@]}"
