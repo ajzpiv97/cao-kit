@@ -7,7 +7,8 @@ Pre-releases (`0.3.0.devN`) are published to PyPI; install one with `uv tool ins
 ### Added
 - Published on PyPI as `caokit`. A GitHub release triggers `.github/workflows/release.yml`, which builds the package and uploads it through PyPI trusted publishing.
 - CI (`.github/workflows/ci.yml`): ruff, mypy and the unit tests on macOS with Python 3.11 and 3.13.
-- Versions are bumped with `bump-my-version` (configured in `pyproject.toml`), which updates both version strings, commits and tags.
+- Versions are bumped with `bump-my-version` (configured in `pyproject.toml`), which updates both version strings and commits.
+- Releases are automatic: merging a version bump to `main` uploads to PyPI, then creates the tag and the GitHub release from the top changelog section.
 - Logo, badges and a reorganised README.
 
 - Custom roles: `caokit role add|list|remove` defines roles beyond the four built-in ones. A custom role is a role file (`~/.config/caokit/roles/<name>.md`, or `.company/roles/<name>.md` for one project) plus a `[roles.<name>]` binding; it is rendered, validated and installed like the others, and `ROSTER.md` describes it to the General. Built-in roles cannot be replaced, `"*"` in `allowedTools` is refused, and a soft-enforcement tool is flagged.

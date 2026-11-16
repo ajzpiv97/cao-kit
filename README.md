@@ -355,22 +355,37 @@ Ruff and mypy both target Python 3.11, the minimum (`requires-python = ">=3.11"`
 runtime dependencies. `uv tool install` fetches a suitable interpreter, so the system Python does
 not matter.
 
-### Releasing
+### Branches and pull requests
 
-Versions follow PEP 440 and are bumped with [`bump-my-version`](https://github.com/callowayproject/bump-my-version),
-which rewrites the version in `pyproject.toml` and `src/caokit/__init__.py`, commits and tags `vX.Y.Z`:
+`main` is always releasable. Work happens on a short-lived branch and reaches `main` through a
+pull request that CI has passed, merged as one squashed commit:
 
 ```bash
-uvx bump-my-version show-bump          # preview what each bump would produce
-uvx bump-my-version bump minor         # 0.2.2 -> 0.3.0.dev0   (start a new version)
-uvx bump-my-version bump pre_n         # 0.3.0.dev0 -> 0.3.0.dev1
-uvx bump-my-version bump pre_l         # 0.3.0.dev1 -> 0.3.0.rc0, and again -> 0.3.0
-git push origin main --follow-tags
-gh release create vX.Y.Z --notes "..." # add --prerelease for dev and rc versions
+git switch -c stop-worker              # a short name for the change
+git push -u origin stop-worker
+gh pr create --fill
+gh pr merge --squash --delete-branch   # once CI is green
 ```
 
-Publishing the GitHub release runs `.github/workflows/release.yml`, which checks the tag against the
-package version, builds, and uploads to PyPI. Update `CHANGELOG.md` before bumping.
+### Releasing
+
+A release is a version bump merged to `main`. Versions follow PEP 440 and are bumped with
+[`bump-my-version`](https://github.com/callowayproject/bump-my-version), which rewrites the version
+in `pyproject.toml` and `src/caokit/__init__.py` and commits. Update `CHANGELOG.md` first, then:
+
+```bash
+git switch -c release
+uvx bump-my-version show-bump          # preview what each bump would produce
+uvx bump-my-version bump pre_n         # 0.3.0.dev0 -> 0.3.0.dev1
+uvx bump-my-version bump pre_l         # 0.3.0.dev1 -> 0.3.0.rc0, and again -> 0.3.0
+uvx bump-my-version bump minor         # 0.3.0 -> 0.4.0.dev0   (start a new version)
+git push -u origin release && gh pr create --fill
+```
+
+Merging that pull request runs `.github/workflows/release.yml`. It sees a version with no tag,
+builds, uploads to PyPI, then creates the `vX.Y.Z` tag and the GitHub release, with the top section
+of `CHANGELOG.md` as the notes (marked pre-release for `dev` and `rc` versions). Nothing is tagged
+if the upload fails; rerun the workflow from the Actions tab to retry.
 
 `scripts/95-validate-e2e.sh` (the harness above) and `scripts/token_usage.py` (Claude token use per
 session) are development tools for this repo, not part of the installed CLI.
