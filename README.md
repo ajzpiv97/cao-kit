@@ -221,6 +221,7 @@ Destructive commands (`uninstall`, `tasks prune`, `reset`) are dry runs unless y
 | `caokit status [REPO]` | Show sessions and workers |
 | `caokit send MESSAGE [--repo REPO] [--timeout S]` | Message the General (waits up to 600 s by default) |
 | `caokit stop [REPO]` | Shut the session down |
+| `caokit stop [REPO] --worker ID` | Stop one worker (ID from `caokit status`); the session and the General stay up. A worktree worker's uncommitted changes are discarded, its commits are kept |
 
 **Tasks and worktrees**
 

@@ -12,6 +12,7 @@ Pre-releases (`0.3.0.devN`) are published to PyPI; install one with `uv tool ins
 
 - Custom roles: `caokit role add|list|remove` defines roles beyond the four built-in ones. A custom role is a role file (`~/.config/caokit/roles/<name>.md`, or `.company/roles/<name>.md` for one project) plus a `[roles.<name>]` binding; it is rendered, validated and installed like the others, and `ROSTER.md` describes it to the General. Built-in roles cannot be replaced, `"*"` in `allowedTools` is refused, and a soft-enforcement tool is flagged.
 - Example custom role `examples/roles/adversary.md`: an adversarial reviewer whose findings each carry a reproduction script.
+- `caokit stop --worker ID` stops one worker and leaves the session up. A live test (2026-11-16) showed the General cannot do this itself while its handoff to that worker is running: `caokit send` is refused, a typed message waits about two minutes, and the General then has no terminal ID to delete. The General is not notified; the command prints the `caokit send` line that tells it.
 
 ### Changed
 - Recommended Claude models swapped: `opus` for the General and `sonnet` for the engineer, matching the roster every live run used. The README example follows.

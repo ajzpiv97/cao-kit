@@ -132,6 +132,47 @@ class SessionCliTests(unittest.TestCase):
         _, calls, _ = self.run_cli("send", "hello", "--repo", str(self.repo))
         self.assertEqual(calls[0][-2:], ["cao-pj", "hello"])
 
+    def stop_worker(self, worker, terminals='[{"id": "aaaa1111"}, {"id": "bbbb2222"}]', http="200"):
+        seen = []
+
+        def capture(argv):
+            seen.append(list(argv))
+            return (0, http) if "DELETE" in argv else (0, terminals)
+
+        out, err = io.StringIO(), io.StringIO()
+        with (
+            mock.patch("caokit.cli._run", return_value=0) as run,
+            mock.patch("caokit.cli._capture", side_effect=capture),
+            contextlib.redirect_stdout(out),
+            contextlib.redirect_stderr(err),
+        ):
+            code = cli.main(["--config", str(self.cfg), "stop", str(self.repo), "--worker", worker])
+        deletes = [a[-1] for a in seen if "DELETE" in a]
+        return code, deletes, run.call_count, out.getvalue() + err.getvalue()
+
+    def test_stop_worker_deletes_that_terminal_and_leaves_the_session_up(self):
+        # Seen live: mid-handoff the General cannot stop a worker, so the owner needs a way to.
+        code, deletes, shutdowns, text = self.stop_worker("bbbb2222")
+        self.assertEqual((code, shutdowns), (0, 0))
+        self.assertEqual(deletes, ["http://127.0.0.1:9889/terminals/bbbb2222"])
+        self.assertIn("bbbb2222", text)
+
+    def test_stop_worker_refuses_the_general_and_unknown_ids(self):
+        code, deletes, _, text = self.stop_worker("aaaa1111")
+        self.assertEqual((code, deletes), (1, []))
+        self.assertIn("General", text)
+        code, deletes, _, text = self.stop_worker("cccc3333")
+        self.assertEqual((code, deletes), (1, []))
+        self.assertIn("bbbb2222", text)  # names the workers that do exist
+
+    def test_stop_worker_reports_a_server_that_is_down_or_refuses(self):
+        code, deletes, _, text = self.stop_worker("bbbb2222", terminals="")
+        self.assertEqual((code, deletes), (1, []))
+        self.assertIn("caokit server", text)
+        code, _, _, text = self.stop_worker("bbbb2222", http="409")
+        self.assertEqual(code, 1)
+        self.assertIn("409", text)
+
     def test_status_runs_list_then_workers(self):
         _, calls, _ = self.run_cli("status", str(self.repo))
         self.assertEqual([c[2] for c in calls], ["list", "status"])

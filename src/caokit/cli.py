@@ -2,6 +2,7 @@
 
 import argparse
 import functools
+import json
 import os
 import shutil
 import subprocess
@@ -24,6 +25,7 @@ from .install import (
     uninstall_profiles,
 )
 from .launch import (
+    api_base,
     build_launch_argv,
     build_send_argv,
     build_status_argv,
@@ -449,7 +451,51 @@ def cmd_stop(a: argparse.Namespace) -> int:
     except ConfigError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
+    if a.worker:
+        return _stop_worker(session_id(name), a.worker)
     return _run(build_stop_argv(session_id(name)))
+
+
+def _stop_worker(session: str, worker: str) -> int:
+    """Stop one worker terminal of ``session`` through the CAO server; the session stays up.
+
+    The General cannot do this while its handoff to that worker is still running, and
+    ``cao`` has no command for it. The first terminal of a session is its General, which
+    is refused: ``caokit stop`` without ``--worker`` is the way to end the session.
+    """
+    base = api_base()
+    out = _capture(["curl", "-s", "-m", "5", f"{base}/sessions/{session}/terminals"])[1]
+    try:
+        ids = [str(t["id"]) for t in json.loads(out)]
+    except (ValueError, TypeError, KeyError):
+        print(
+            f"error: could not list the terminals of {session}. Is the session running "
+            "(`caokit status`) and the server up (`caokit server`)?",
+            file=sys.stderr,
+        )
+        return 1
+    workers = ", ".join(ids[1:]) or "none"
+    if ids and worker == ids[0]:
+        print(
+            f"error: {worker} is the General, not a worker. `caokit stop` without --worker "
+            "ends the whole session.",
+            file=sys.stderr,
+        )
+        return 1
+    if worker not in ids:
+        print(f"error: no worker {worker} in {session}. Workers: {workers}", file=sys.stderr)
+        return 1
+    argv = ["curl", "-s", "-m", "60", "-o", "/dev/null", "-w", "%{http_code}", "-X", "DELETE"]
+    http = _capture([*argv, f"{base}/terminals/{worker}"])[1].strip()
+    if http != "200":
+        print(f"error: the CAO server answered {http or 'nothing'} to the stop", file=sys.stderr)
+        return 1
+    print(
+        f"Stopped worker {worker}. The session and the General are still running.\n"
+        "The General is not told: its handoff keeps waiting until its timeout. Tell it with\n"
+        f'  caokit send "I stopped worker {worker}; do not wait for it."'
+    )
+    return 0
 
 
 def cmd_reset(a: argparse.Namespace) -> int:
@@ -813,6 +859,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     sd.set_defaults(fn=cmd_send)
     sp = sub.add_parser("stop", help="shut the project's session down")
     sp.add_argument("repo", nargs="?", default=".")
+    sp.add_argument(
+        "--worker",
+        metavar="ID",
+        help="stop only this worker (ID from `caokit status`); the session stays up",
+    )
     sp.set_defaults(fn=cmd_stop)
     rs = sub.add_parser("reset", help="back up CAO state, then reinstall CAO and the profiles")
     rs.add_argument("--yes", action="store_true", help="do it (default is a dry run)")

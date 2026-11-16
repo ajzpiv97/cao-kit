@@ -5,6 +5,7 @@ what would run. The CLI layer is the only caller that executes them.
 """
 
 import hashlib
+import os
 import re
 from pathlib import Path
 
@@ -95,6 +96,13 @@ def build_status_argv(session: str) -> list[list[str]]:
 def build_send_argv(session: str, message: str, timeout: int = 600) -> list[str]:
     """Build the command that sends ``message`` to a session's General."""
     return ["cao", "session", "send", "--timeout", str(timeout), "--", session, message]
+
+
+def api_base() -> str:
+    """Return the CAO server's base URL (``CAO_API_HOST`` and ``CAO_API_PORT`` override it)."""
+    return "http://{}:{}".format(
+        os.environ.get("CAO_API_HOST", "127.0.0.1"), os.environ.get("CAO_API_PORT", "9889")
+    )
 
 
 def build_stop_argv(session: str) -> list[str]:

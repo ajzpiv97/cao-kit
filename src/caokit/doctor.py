@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .adapters import Runner, adapter_ids, default_runner, load_adapter
 from .config import Config, ConfigError, default_path, load_config
+from .launch import api_base
 from .roster import check_roster
 
 # PyPI/uv name of CAO (not the `cao` binary name).
@@ -152,9 +153,7 @@ def _check_server(rep: Report, runner: Runner, which: Which) -> None:
     """
     if not which("curl"):
         return
-    base = "http://{}:{}".format(
-        os.environ.get("CAO_API_HOST", "127.0.0.1"), os.environ.get("CAO_API_PORT", "9889")
-    )
+    base = api_base()
     health = _run(runner, ["curl", "-s", "-m", "3", base + "/health"])
     if not health:
         rep.add("warn", "cao-server is not running (start it with `caokit server`)")
