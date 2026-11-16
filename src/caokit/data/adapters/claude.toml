@@ -20,11 +20,11 @@ permissionMode = "auto"
 
 [roles.general]
 can_fill = "yes"
-recommended_model = "sonnet"
+recommended_model = "opus"     # plans, dispatches and judges acceptance: the hardest calls
 
 [roles.engineer]
 can_fill = "yes"
-recommended_model = "opus"
+recommended_model = "sonnet"   # implements a task the General already scoped
 
 [roles.scout]
 can_fill = "yes"

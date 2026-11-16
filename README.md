@@ -81,7 +81,7 @@ caokit doctor                                             # CLIs, auth, CAO vers
 ## Quick start
 
 ```bash
-caokit company create --general claude:sonnet --engineer claude:opus \
+caokit company create --general claude:opus --engineer claude:sonnet \
     --scout antigravity:gemini-3.8-flash-medium --inspector antigravity:gemini-4-argon-high
 caokit install                         # render and install the profiles into CAO
 caokit init /path/to/repo              # scaffold .caokit/, ROSTER.md, merge .gitignore
@@ -148,6 +148,13 @@ edit the file, run `caokit install` and relaunch.
 - **Names** are lowercase letters and digits. A project's role file wins over a user-level one with
   the same name, and a project can rebind a user-level role with `--override auditor=:sonnet`.
 - A project's `.caokit/roles/` is git-ignored like the rest of `.caokit/` except `contracts/`.
+
+A ready-made example is [`examples/roles/adversary.md`](https://github.com/ajzpiv97/cao-kit/blob/main/examples/roles/adversary.md):
+an adversarial reviewer that attacks a change after the inspector approved it and backs every
+finding with a reproduction script. Add it from a checkout with
+`caokit role add adversary antigravity:gemini-4-argon-high --from examples/roles/adversary.md`.
+In a live run on a path-handling task, the General chose it unprompted from its description, and it
+reproduced a symlink escape that the engineer's tests and the inspector had both passed.
 
 Keep `fs_write` in the General's profile. CAO's validator warns that it is "not recognised", but
 that is a gap in its own vocabulary check, and removing it would block the General's `.caokit/`

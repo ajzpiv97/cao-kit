@@ -11,8 +11,10 @@ Pre-releases (`0.3.0.devN`) are published to PyPI; install one with `uv tool ins
 - Logo, badges and a reorganised README.
 
 - Custom roles: `caokit role add|list|remove` defines roles beyond the four built-in ones. A custom role is a role file (`~/.config/caokit/roles/<name>.md`, or `.company/roles/<name>.md` for one project) plus a `[roles.<name>]` binding; it is rendered, validated and installed like the others, and `ROSTER.md` describes it to the General. Built-in roles cannot be replaced, `"*"` in `allowedTools` is refused, and a soft-enforcement tool is flagged.
+- Example custom role `examples/roles/adversary.md`: an adversarial reviewer whose findings each carry a reproduction script.
 
 ### Changed
+- Recommended Claude models swapped: `opus` for the General and `sonnet` for the engineer, matching the roster every live run used. The README example follows.
 - **The project folder is now `.caokit/`, not `.company/`**, following the convention of naming a tool's folder after the tool. In an existing project: `mv .company .caokit`, then `caokit init <repo>` (updates `.gitignore` and `ROSTER.md`) and `caokit install` again, because the role prompts name the folder. `caokit init` and the project commands say this when they find the old folder; nothing is moved for you.
 - A role name that is not built in is no longer a config error by itself; it is a custom role and is rejected by the roster rules if it has no role file.
 
@@ -23,6 +25,7 @@ Pre-releases (`0.3.0.devN`) are published to PyPI; install one with `uv tool ins
 
 ### Proven live (2026-11-15, on 0.3.0.dev0 from PyPI)
 - `caokit reset --yes`; `tasks schedule --install` and `--remove` (crontab restored byte for byte).
+- A custom role end to end (2026-11-16, on 0.3.0.dev2): given a path-handling task, the General put the `adversary` example role in its plan unprompted; the adversary wrote four reproduction scripts and reported a blocking symlink escape that the engineer's tests and the inspector had passed.
 - Worktree mode with two parallel engineers, an engineer's mid-task question to the General, rework on the same terminal (second commit on the same branch), acceptance, a real merge with a conflict, `stop` and `tasks archive`.
 
 ### Removed
