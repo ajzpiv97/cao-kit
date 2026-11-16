@@ -157,6 +157,31 @@ class SessionCliTests(unittest.TestCase):
         self.assertEqual(deletes, ["http://127.0.0.1:9889/terminals/bbbb2222"])
         self.assertIn("bbbb2222", text)
 
+    def test_stop_worker_tells_the_general_through_its_inbox(self):
+        # Seen live: the General's handoff keeps waiting after its worker is stopped.
+        seen = []
+
+        def capture(argv):
+            seen.append(list(argv))
+            if "DELETE" in argv or "POST" in argv:
+                return 0, "200"
+            return 0, '[{"id": "aaaa1111"}, {"id": "bbbb2222"}]'
+
+        out = io.StringIO()
+        with (
+            mock.patch("caokit.cli._capture", side_effect=capture),
+            contextlib.redirect_stdout(out),
+        ):
+            code = cli.main(
+                ["--config", str(self.cfg), "stop", str(self.repo), "--worker", "bbbb2222"]
+            )
+        posts = [a for a in seen if "POST" in a]
+        self.assertEqual((code, len(posts)), (0, 1))
+        self.assertEqual(posts[0][-1], "http://127.0.0.1:9889/terminals/aaaa1111/inbox/messages")
+        self.assertTrue(any("bbbb2222" in part for part in posts[0] if part.startswith("message=")))
+        self.assertLess(seen.index(next(a for a in seen if "DELETE" in a)), seen.index(posts[0]))
+        self.assertIn("General has been told", out.getvalue())
+
     def test_stop_worker_refuses_the_general_and_unknown_ids(self):
         code, deletes, _, text = self.stop_worker("aaaa1111")
         self.assertEqual((code, deletes), (1, []))

@@ -460,7 +460,8 @@ def _stop_worker(session: str, worker: str) -> int:
     """Stop one worker terminal of ``session`` through the CAO server; the session stays up.
 
     The General cannot do this while its handoff to that worker is still running, and
-    ``cao`` has no command for it. The first terminal of a session is its General, which
+    ``cao`` has no command for it. The General is told through its CAO inbox afterwards.
+    The first terminal of a session is its General, which
     is refused: ``caokit stop`` without ``--worker`` is the way to end the session.
     """
     base = api_base()
@@ -490,11 +491,28 @@ def _stop_worker(session: str, worker: str) -> int:
     if http != "200":
         print(f"error: the CAO server answered {http or 'nothing'} to the stop", file=sys.stderr)
         return 1
-    print(
-        f"Stopped worker {worker}. The session and the General are still running.\n"
-        "The General is not told: its handoff keeps waiting until its timeout. Tell it with\n"
-        f'  caokit send "I stopped worker {worker}; do not wait for it."'
+    print(f"Stopped worker {worker}. The session and the General are still running.")
+    # The General's handoff to this worker keeps waiting, so say what happened. An inbox
+    # message is delivered as soon as the General is idle; `cao session send` would be refused.
+    note = (
+        f"The owner stopped worker {worker} with `caokit stop --worker`. It will not report. "
+        "Do not wait for it or redispatch its task; say what state the task is in and ask the "
+        "owner what to do next."
     )
+    told = _capture(
+        [
+            *["curl", "-s", "-m", "30", "-o", "/dev/null", "-w", "%{http_code}", "-X", "POST"],
+            *["-G", "--data-urlencode", "sender_id=caokit", "--data-urlencode", f"message={note}"],
+            f"{base}/terminals/{ids[0]}/inbox/messages",
+        ]
+    )[1].strip()
+    if told == "200":
+        print("The General has been told; it reads the message when it is next idle.")
+    else:
+        print(
+            "The General could not be told. Tell it yourself:\n"
+            f'  caokit send "I stopped worker {worker}; do not wait for it."'
+        )
     return 0
 
 
